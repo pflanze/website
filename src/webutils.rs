@@ -12,7 +12,7 @@ use crate::{nopp as pp, nodt as dt, warn};
 // If thunk returns an Err, we do a nice error box here, still print
 // the error to stderr. Also, bump allocator to allow for cases where
 // ran out of mem.
-pub fn error_boundary<F>(h: &Allocator, thunk: F) -> AId<Node>
+pub fn error_boundary<F>(html: &Allocator, thunk: F) -> AId<Node>
 where F: FnOnce() -> Result<AId<Node>>
 {
     match thunk() {
@@ -21,9 +21,9 @@ where F: FnOnce() -> Result<AId<Node>>
             let errid = randomidstring().unwrap();
             eprintln!("cap: Error {}: {}", errid, e);
             // Don't actually know if p will be OK!!!
-            (|| h.p([],
-                    [h.string(format!("An Error happened here (error id {})",
-                                      errid))?]))()
+            (|| html.p([],
+                       [html.string(format!("An Error happened here (error id {})",
+                                            errid))?]))()
                 .unwrap() // UH
         }
     }
