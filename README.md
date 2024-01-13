@@ -13,3 +13,7 @@ necessary, since recent `ring` explicitly only uses precompiled
 binaries on Windows. Or you could trust the systems where those
 binaries were built, of course.
 
+
+
+IS_DEV=1
+
