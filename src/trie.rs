@@ -345,7 +345,7 @@ impl<'trie, T> Iterator for TrieIter<'trie, T>
                 }
                 let node = cont.node;
                 ondebug!(let state = cont.state);
-                drop(cont);
+                // drop(cont);
                 let current_path = self.current_path();
                 let _ = self.continuation.pop().expect("saw it above");
                 if self.report_style == TrieIterReportStyle::AfterRecursing {
