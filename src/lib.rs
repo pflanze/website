@@ -36,7 +36,6 @@ pub mod html {
     pub mod meta;
     pub mod types;
 }
-pub mod htmlsexpr;
 pub mod http_response_status_codes;
 pub mod markdown;
 pub mod trie;
