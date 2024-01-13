@@ -135,6 +135,7 @@ impl<T> MultiRouter<T> {
         self
     }
 
+    /// If the path resolves, returns all the entries at the end point and the surplus of path.
     pub fn get<P: Eq + MyAsStr + Debug + Clone>(
         &self,
         path: &PPath<P>
