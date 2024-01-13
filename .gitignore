@@ -4,3 +4,5 @@ playground
 accounts.db
 accounts.db.*
 /.cargo/
+accounts.db-journal
+/target/
