@@ -5,7 +5,7 @@ use website::access_control::statements_and_methods::DO_WARN_THREAD;
 use website::apachelog::Logs;
 use website::arequest::ARequest;
 use website::blog::Blog;
-use website::ahtml::{AllocatorPool, Flat, Allocator, Node, att};
+use website::ahtml::{AllocatorPool, Flat, HtmlAllocator, Node, att};
 use anyhow::{Result, bail, anyhow};
 use website::hostrouter::{HostRouter, HostsRouter};
 use website::http_response_status_codes::HttpResponseStatusCode;
@@ -108,7 +108,7 @@ fn main() -> Result<()> {
         nav: &NAV,
         header_contents: Box::new({
             let in_datadir = in_datadir.clone();
-            move |html: &Allocator| -> Result<Flat<Node>> {
+            move |html: &HtmlAllocator| -> Result<Flat<Node>> {
                 Ok(Flat::One(
                     html.a([att("href", "/")], // XX problem with bilingual!
                            [static_img(html,

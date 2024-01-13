@@ -12,7 +12,7 @@ use rouille::{Response, Request, post_input, session::session};
 use scoped_thread_pool::Pool;
 
 use crate::{arequest::ARequest,
-            ahtml::{Allocator, AId, Node, P_META, TryCollectBody, AllocatorPool,
+            ahtml::{HtmlAllocator, AId, Node, P_META, TryCollectBody, AllocatorPool,
                     att, opt_att},
             webutils::{htmlresponse, request_resolve_relative, errorpage_from_status},
             http_response_status_codes::HttpResponseStatusCode,
@@ -123,7 +123,7 @@ pub fn server_handler<'t>(
 // ------------------------------------------------------------------
 // The mid-level parts, building elements
 
-pub fn pair<'a>(html: &'a Allocator) -> impl Fn(AId<Node>, AId<Node>) -> Result<AId<Node>> + 'a
+pub fn pair<'a>(html: &'a HtmlAllocator) -> impl Fn(AId<Node>, AId<Node>) -> Result<AId<Node>> + 'a
 {
     move |a, b| {
         html.div([att("class", "pair")],
@@ -145,7 +145,7 @@ pub fn pair<'a>(html: &'a Allocator) -> impl Fn(AId<Node>, AId<Node>) -> Result<
 // }
 
 pub fn buttonrow<'a, const N: usize>(
-    html: &'a Allocator
+    html: &'a HtmlAllocator
 ) -> impl Fn([AId<Node>; N]) -> Result<AId<Node>> + 'a
 {
     move |buttons| {
@@ -154,7 +154,7 @@ pub fn buttonrow<'a, const N: usize>(
     }
 }
 
-pub fn dialog_box<'a>(html: &'a Allocator)
+pub fn dialog_box<'a>(html: &'a HtmlAllocator)
                       -> impl Fn(AId<Node>, AId<Node>) -> Result<AId<Node>> + 'a
 {
     move |title, body| {
@@ -179,7 +179,7 @@ pub trait LayoutInterface: Send + Sync {
     fn page(
         &self,
         request: &ARequest,
-        html: &Allocator,
+        html: &HtmlAllocator,
         // Can't be preserialized HTML, must be string node. If
         // missing, a default title should be used (usually the site
         // name that would be appended or prepended to the title):
@@ -207,7 +207,7 @@ fn markdownprocessor(
     style: Arc<dyn LayoutInterface>,
     request: &ARequest,
     path: PathBuf,
-    html: &Allocator    
+    html: &HtmlAllocator    
 ) -> Result<AResponse>
 {
     htmlresponse(html, HttpResponseStatusCode::OK200, |html| {
@@ -249,7 +249,7 @@ pub fn markdownpage_handler(
     let path = PathBuf::from(path);
     Arc::new(ExactFnHandler(
         move |
-        request: &ARequest, method: HttpRequestMethodSimple, html: &Allocator
+        request: &ARequest, method: HttpRequestMethodSimple, html: &HtmlAllocator
             | -> Result<AResponse>
         {
             if method.is_post() {
@@ -273,7 +273,7 @@ pub fn blog_handler(blog: Arc<Blog>, style: Arc<dyn LayoutInterface>) -> Arc<dyn
         request: &ARequest,
         method: HttpRequestMethodSimple,
         path: &PPath<KString>,
-        html: &Allocator
+        html: &HtmlAllocator
             | -> Result<Option<AResponse>>
         {
             nodt!("blog", path);
@@ -411,7 +411,7 @@ pub fn login_handler(style: Arc<dyn LayoutInterface>) -> Arc<dyn Handler> {
         request: &ARequest,
         method: HttpRequestMethodSimple,
         _path: &PPath<KString>,
-        html: &Allocator
+        html: &HtmlAllocator
             | -> Result<Option<AResponse>>
         {
             let show_form =

@@ -1,6 +1,6 @@
 use anyhow::Result;
 
-use crate::{ahtml::{Node, ASlice, Allocator, AId, Flat, att},
+use crate::{ahtml::{Node, ASlice, HtmlAllocator, AId, Flat, att},
             markdown::{StylingInterface, Footnoteref, Backref, StylingContextInterface},
             util::alphanumber};
 
@@ -19,7 +19,7 @@ pub struct WikipediaStyleContext<'c> {
 impl StylingInterface for WikipediaStyle {
     fn new_context<'c>(
         &'c self,
-        html: &Allocator,
+        html: &HtmlAllocator,
     ) -> Result<Box<dyn StylingContextInterface<'c> + 'c>> {
         Ok(Box::new(WikipediaStyleContext {
             config: self,
@@ -32,7 +32,7 @@ impl StylingInterface for WikipediaStyle {
 impl<'c> StylingContextInterface<'c> for WikipediaStyleContext<'c> {
     fn format_footnote_definition(
         &self,
-        html: &Allocator,
+        html: &HtmlAllocator,
         reference: &Footnoteref,
         backreferences: &[Backref],
         clean_slice: &ASlice<Node>,
@@ -76,7 +76,7 @@ impl<'c> StylingContextInterface<'c> for WikipediaStyleContext<'c> {
     fn format_footnotes(
         &self,
         body: ASlice<Node>,
-        html: &Allocator,
+        html: &HtmlAllocator,
     ) -> Result<AId<Node>> {
         html.dl(
             [att("class", "footnotes")],
@@ -99,7 +99,7 @@ pub struct BlogStyleContext<'c> {
 impl StylingInterface for BlogStyle {
     fn new_context<'c>(
         &'c self,
-        html: &Allocator,
+        html: &HtmlAllocator,
     ) -> Result<Box<dyn StylingContextInterface<'c> + 'c>> {
         Ok(Box::new(BlogStyleContext {
             config: self,
@@ -112,7 +112,7 @@ impl StylingInterface for BlogStyle {
 impl<'c> StylingContextInterface<'c> for BlogStyleContext<'c> {
     fn format_footnote_definition(
         &self,
-        html: &Allocator,
+        html: &HtmlAllocator,
         reference: &Footnoteref,
         backreferences: &[Backref],
         clean_slice: &ASlice<Node>,
@@ -155,7 +155,7 @@ impl<'c> StylingContextInterface<'c> for BlogStyleContext<'c> {
     fn format_footnotes(
         &self,
         body: ASlice<Node>,
-        html: &Allocator,
+        html: &HtmlAllocator,
     ) -> Result<AId<Node>> {
         html.ol(
             [att("class", "footnotes")],

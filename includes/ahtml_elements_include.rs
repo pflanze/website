@@ -337,7 +337,7 @@ lazy_static!{
     pub static ref WBR_META: &'static ElementMeta = METADB.elementmeta.get("wbr").unwrap();
 }
 
-impl Allocator {
+impl HtmlAllocator {
     #[allow(dead_code)]
     pub fn a(&self,
              attr: impl ToASlice<(KString, KString)>,

@@ -54,7 +54,7 @@ for my $name (@names) {
 }
 
 print $out "
-impl Allocator {
+impl HtmlAllocator {
 " or die $!;
 
 sub printel($name) {

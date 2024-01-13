@@ -9,7 +9,7 @@ use crate::{router::MultiRouter,
             apachelog::Logs,
             warn,
             arequest::ARequest,
-            ahtml::Allocator,
+            ahtml::HtmlAllocator,
             webutils::errorpage_from_status,
             http_response_status_codes::HttpResponseStatusCode, http_request_method::HttpRequestMethodSimple, aresponse::AResponse};
 
@@ -27,7 +27,7 @@ impl HostRouter {
         &self,
         request: &ARequest,
         method: HttpRequestMethodSimple,
-        allocator: &Allocator
+        allocator: &HtmlAllocator
     ) -> (Arc<Mutex<Logs>>, anyhow::Result<AResponse>)
     {
         if let Some(router) = &self.router {

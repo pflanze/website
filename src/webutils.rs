@@ -3,7 +3,7 @@ use anyhow::{Result, Error};
 use rouille::{Response, ResponseBody};
 use crate::arequest::ARequest;
 use crate::http_response_status_codes::HttpResponseStatusCode;
-use crate::ahtml::{Node, AId, Allocator};
+use crate::ahtml::{Node, AId, HtmlAllocator};
 use crate::ppath::PPath;
 use crate::random_util::randomidstring;
 use crate::{nopp as pp, nodt as dt, warn};
@@ -12,7 +12,7 @@ use crate::{nopp as pp, nodt as dt, warn};
 // If thunk returns an Err, we do a nice error box here, still print
 // the error to stderr. Also, bump allocator to allow for cases where
 // ran out of mem.
-pub fn error_boundary<F>(html: &Allocator, thunk: F) -> AId<Node>
+pub fn error_boundary<F>(html: &HtmlAllocator, thunk: F) -> AId<Node>
 where F: FnOnce() -> Result<AId<Node>>
 {
     match thunk() {
@@ -54,9 +54,9 @@ pub fn errorpage_from_error(err: Error) -> Response {
 }
 
 pub fn htmlresponse(
-    html: &Allocator,
+    html: &HtmlAllocator,
     status: HttpResponseStatusCode,
-    produce: impl for<'a> FnOnce(&Allocator) -> Result<AId<Node>>
+    produce: impl for<'a> FnOnce(&HtmlAllocator) -> Result<AId<Node>>
 ) -> Result<Response>
 {
     Ok(Response {

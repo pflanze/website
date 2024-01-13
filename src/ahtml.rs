@@ -27,15 +27,15 @@ pub enum Flat<T> {
 
 pub trait Print {
     /// Print serialized HTML.
-    fn print_html(&self, out: &mut impl Write, allocator: &Allocator)
+    fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator)
                   -> Result<()>;
     /// Print plain text, completely *ignoring* HTML markup. Can
     /// currently only give an error if encountering preserialized
     /// HTML.
-    fn print_plain(&self, out: &mut String, allocator: &Allocator)
+    fn print_plain(&self, out: &mut String, allocator: &HtmlAllocator)
                    -> Result<()>;
 
-    fn to_string(&self, allocator: &Allocator) -> Result<String> {
+    fn to_string(&self, allocator: &HtmlAllocator) -> Result<String> {
         let mut s = String::new();
         self.print_plain(&mut s, allocator)?;
         Ok(s)
@@ -103,21 +103,21 @@ pub fn opt_att<T, U>(key: T, val: Option<U>) -> Option<(KString, KString)>
 
 
 pub trait ToASlice<T> {
-    fn to_aslice(self, allocator: &Allocator) -> Result<ASlice<T>>;
+    fn to_aslice(self, allocator: &HtmlAllocator) -> Result<ASlice<T>>;
 }
 
 impl<T> ToASlice<T> for ASlice<T> {
-    fn to_aslice(self, _allocator: &Allocator) -> Result<ASlice<T>> {
+    fn to_aslice(self, _allocator: &HtmlAllocator) -> Result<ASlice<T>> {
         Ok(self)
     }
 }
 impl<T> ToASlice<T> for &ASlice<T> {
-    fn to_aslice(self, _allocator: &Allocator) -> Result<ASlice<T>> {
+    fn to_aslice(self, _allocator: &HtmlAllocator) -> Result<ASlice<T>> {
         Ok(*self)
     }
 }
 impl<'a, T: AllocatorType> ToASlice<T> for AVec<'a, T> {
-    fn to_aslice(self, _allocator: &Allocator) -> Result<ASlice<T>> {
+    fn to_aslice(self, _allocator: &HtmlAllocator) -> Result<ASlice<T>> {
         Ok(self.as_slice())
     }
 }
@@ -125,7 +125,7 @@ impl<'a, T: AllocatorType> ToASlice<T> for AVec<'a, T> {
 /// branches of code, where an owned array doesn't work because of
 /// the different types.
 impl<T: AllocatorType> ToASlice<T> for Flat<T> {
-    fn to_aslice(self, allocator: &Allocator) -> Result<ASlice<T>> {
+    fn to_aslice(self, allocator: &HtmlAllocator) -> Result<ASlice<T>> {
         match self {
             Flat::None => Ok(allocator.empty_slice()),
             Flat::One(a) => {
@@ -173,7 +173,7 @@ impl<T: AllocatorType> ToASlice<T> for Flat<T> {
 impl<'a, const N: usize> ToASlice<(KString, KString)> for [Option<(KString, KString)>; N] {
     fn to_aslice(
         self,
-        allocator: &Allocator
+        allocator: &HtmlAllocator
     ) -> Result<ASlice<(KString, KString)>>
     {
         let mut vec = allocator.new_vec();
@@ -188,7 +188,7 @@ impl<'a, const N: usize> ToASlice<(KString, KString)> for [Option<(KString, KStr
 }
 
 impl<const N: usize> ToASlice<Node> for [AId<Node>; N] {
-    fn to_aslice(self, allocator: &Allocator) -> Result<ASlice<Node>> {
+    fn to_aslice(self, allocator: &HtmlAllocator) -> Result<ASlice<Node>> {
         // Instantiated for every length, need to keep this short! --
         // except if we want to avoid the swap, there is no length
         // independent way to do it, hence have to be fat,
@@ -206,7 +206,7 @@ impl<const N: usize> ToASlice<Node> for [AId<Node>; N] {
 pub struct AllocatorPool {
     max_id: u32, // See Allocator
     metadb: Option<&'static MetaDb>, // See Allocator
-    allocators: Mutex<Vec<Allocator>>,
+    allocators: Mutex<Vec<HtmlAllocator>>,
 }
 impl AllocatorPool {
     pub fn new(max_id: u32, verify: bool) -> AllocatorPool {
@@ -239,10 +239,10 @@ impl AllocatorPool {
 pub struct AllocatorGuard<'p>
 {
     pool: &'p AllocatorPool,
-    _allocator: Option<Allocator>
+    _allocator: Option<HtmlAllocator>
 }
 impl<'p> AllocatorGuard<'p> {
-    pub fn allocator(&mut self) -> &Allocator {
+    pub fn allocator(&mut self) -> &HtmlAllocator {
         // Safe because the lifetime 'a is passed on to AId, which are
         // valid for the storage. And when drop() is called on
         // AllocatorGuard, none of them exist anymore outside (also
@@ -255,7 +255,7 @@ impl<'p> AllocatorGuard<'p> {
 
         if self._allocator.is_none() {
             // eprintln!("allocating a new Allocator");
-            self._allocator = Some(Allocator::new(
+            self._allocator = Some(HtmlAllocator::new(
                 self.pool.max_id,
                 self.pool.metadb.clone(),
             ));
@@ -275,7 +275,7 @@ impl<'p> Drop for AllocatorGuard<'p> {
     }
 }
 
-pub struct Allocator {
+pub struct HtmlAllocator {
     // For dynamic verification of AId:s, also the generation counter
     // is used to stop reusing the allocator at some point to free up
     // unused memory.
@@ -310,9 +310,9 @@ fn next_allocator_id() -> U24 {
     U24::new(id)
 }
 
-impl Allocator {
-    pub fn new(max_id: u32, metadb: Option<&'static MetaDb>) -> Allocator {
-        Allocator {
+impl HtmlAllocator {
+    pub fn new(max_id: u32, metadb: Option<&'static MetaDb>) -> HtmlAllocator {
+        HtmlAllocator {
             regionid: RegionId {
                 allocator_id: next_allocator_id(),
                 generation: 0,
@@ -893,7 +893,7 @@ impl<T> Copy for AId<T> {}
 // AVec lives *outside* an allocator
 pub struct AVec<'a, T: AllocatorType> {
     t: PhantomData<T>,
-    allocator: &'a Allocator,
+    allocator: &'a HtmlAllocator,
     len: u32,
     cap: u32,
     start: u32, // bare Id for ids
@@ -901,7 +901,7 @@ pub struct AVec<'a, T: AllocatorType> {
 
 impl<'a, T: AllocatorType> AVec<'a, T> {
     // But actually keep private, only instantiate via Allocator::new_vec ?
-    pub fn new(allocator: &'a Allocator) -> AVec<'a, T> {
+    pub fn new(allocator: &'a HtmlAllocator) -> AVec<'a, T> {
         AVec {
             t: PhantomData,
             allocator,
@@ -911,7 +911,7 @@ impl<'a, T: AllocatorType> AVec<'a, T> {
         }
     }
     pub fn new_with_capacity(
-        allocator: &'a Allocator,
+        allocator: &'a HtmlAllocator,
         capacity: u32
     ) -> Result<AVec<'a, T>> {
         let start = allocator.alloc(
@@ -981,7 +981,7 @@ impl<'a, T: AllocatorType> AVec<'a, T> {
     pub fn push_flat(
         &mut self,
         flat: Flat<T>,
-        allocator: &Allocator
+        allocator: &HtmlAllocator
     ) -> Result<()> {
         match flat {
             Flat::None => Ok(()),
@@ -998,7 +998,7 @@ impl<'a, T: AllocatorType> AVec<'a, T> {
     pub fn extend_from_slice(
         &mut self,
         slice: &ASlice<T>,
-        allocator: &Allocator
+        allocator: &HtmlAllocator
     ) -> Result<()> {
         for aid in slice.iter_aid(allocator) {
             self.push(aid)?;
@@ -1025,7 +1025,7 @@ impl<T> Clone for ASlice<T> {
 impl<T> Copy for ASlice<T> {}
 
 pub struct ASliceNodeIterator<'a, T> {
-    allocator: &'a Allocator,
+    allocator: &'a HtmlAllocator,
     t: PhantomData<T>,
     id: u32,
     id_end: u32,
@@ -1048,7 +1048,7 @@ impl<'a, T> Iterator for ASliceNodeIterator<'a, T> {
 
 // Horrible COPY-PASTE
 pub struct ASliceAttIterator<'a, T> {
-    allocator: &'a Allocator,
+    allocator: &'a HtmlAllocator,
     t: PhantomData<T>,
     id: u32,
     id_end: u32,
@@ -1071,7 +1071,7 @@ impl<'a, T> Iterator for ASliceAttIterator<'a, T> {
 // /horrible
 
 pub struct ASliceAIdIterator<'a, T> {
-    allocator: &'a Allocator,
+    allocator: &'a HtmlAllocator,
     t: PhantomData<T>,
     id: u32,
     id_end: u32,
@@ -1094,7 +1094,7 @@ impl<'a, T> Iterator for ASliceAIdIterator<'a, T> {
 impl<'a, T: AllocatorType> ASlice<T> {
     pub fn len(&self) -> u32 { self.len }
 
-    pub fn iter_node(&self, allocator: &'a Allocator) -> ASliceNodeIterator<'a, T> {
+    pub fn iter_node(&self, allocator: &'a HtmlAllocator) -> ASliceNodeIterator<'a, T> {
         allocator.assert_regionid(self.regionid);
         ASliceNodeIterator {
             allocator,
@@ -1104,7 +1104,7 @@ impl<'a, T: AllocatorType> ASlice<T> {
         }
     }
     // Horrible COPY-PASTE
-    pub fn iter_att(&self, allocator: &'a Allocator) -> ASliceAttIterator<'a, T> {
+    pub fn iter_att(&self, allocator: &'a HtmlAllocator) -> ASliceAttIterator<'a, T> {
         allocator.assert_regionid(self.regionid);
         ASliceAttIterator {
             allocator,
@@ -1114,7 +1114,7 @@ impl<'a, T: AllocatorType> ASlice<T> {
         }
     }
 
-    pub fn iter_aid(&self, allocator: &'a Allocator) -> ASliceAIdIterator<'a, T> {
+    pub fn iter_aid(&self, allocator: &'a HtmlAllocator) -> ASliceAIdIterator<'a, T> {
         ASliceAIdIterator {
             allocator,
             t: PhantomData,
@@ -1127,7 +1127,7 @@ impl<'a, T: AllocatorType> ASlice<T> {
         &self,
         f: F,
         capacity: Option<u32>, // None means self.len() will be used
-        allocator: &'a Allocator
+        allocator: &'a HtmlAllocator
     ) -> Result<AVec<'a, T>> {
         let cap = capacity.unwrap_or_else(|| self.len());
         let mut v = allocator.new_vec_with_capacity(cap)?;
@@ -1146,7 +1146,7 @@ impl<'a, T: AllocatorType> ASlice<T> {
         &self,
         f: F,
         capacity: Option<u32>, // None means self.len() will be used
-        allocator: &'a Allocator
+        allocator: &'a HtmlAllocator
     ) -> Result<AVec<'a, T>> {
         let cap = capacity.unwrap_or_else(|| self.len());
         let mut v = allocator.new_vec_with_capacity(cap)?;
@@ -1163,7 +1163,7 @@ impl<'a, T: AllocatorType> ASlice<T> {
     pub fn split_when<F: Fn(AId<T>) -> bool>(
         &self,
         f: F,
-        allocator: &'a Allocator
+        allocator: &'a HtmlAllocator
     ) -> Option<(ASlice<T>, ASlice<T>)> {
         let end = self.start + self.len;
         for place in self.start..end {
@@ -1217,7 +1217,7 @@ impl<'a, T: AllocatorType> ASlice<T> {
     /// The first element and the rest, unless the slice is empty.
     pub fn first_and_rest(
         &self,
-        allocator: &'a Allocator
+        allocator: &'a HtmlAllocator
     ) -> Option<(AId<T>, ASlice<T>)> {
         if self.len >= 1 {
             let id = allocator.get_id(self.start).expect(
@@ -1236,7 +1236,7 @@ impl<'a, T: AllocatorType> ASlice<T> {
         }
     }
 
-    pub fn get(&self, i: u32, allocator: &'a Allocator) -> Option<AId<T>> {
+    pub fn get(&self, i: u32, allocator: &'a HtmlAllocator) -> Option<AId<T>> {
         if i < self.len {
             let id = self.start + i;
             allocator.get_id(id)
@@ -1277,7 +1277,7 @@ impl<'a> ASlice<Node> {
     pub fn unwrap_element_opt(&self,
                               meta: &ElementMeta,
                               strict: bool,
-                              allocator: &'a Allocator) -> Option<ASlice<Node>> {
+                              allocator: &'a HtmlAllocator) -> Option<ASlice<Node>> {
         if self.len == 1 {
             let nodeid = self.get(0, allocator).expect("exists because len == 1");
             let node = allocator.get_node(nodeid).expect(
@@ -1295,7 +1295,7 @@ impl<'a> ASlice<Node> {
     pub fn unwrap_element(&self,
                           meta: &ElementMeta,
                           strict: bool,
-                          allocator: &'a Allocator) -> ASlice<Node> {
+                          allocator: &'a HtmlAllocator) -> ASlice<Node> {
         self.unwrap_element_opt(meta, strict, allocator).unwrap_or_else(
             || self.clone())
     }
@@ -1305,7 +1305,7 @@ impl<'a> ASlice<Node> {
     pub fn unwrap_elements(&self,
                            meta: &ElementMeta,
                            strict: bool,
-                           allocator: &'a Allocator) -> Result<ASlice<Node>> {
+                           allocator: &'a HtmlAllocator) -> Result<ASlice<Node>> {
         self.unwrap_element_opt(meta, strict, allocator).map_or_else(
             || -> Result<ASlice<Node>> {
                 let mut v = allocator.new_vec();
@@ -1328,7 +1328,7 @@ impl<'a> ASlice<Node> {
 }
 
 impl<T: AllocatorType> Print for ASlice<T> {
-    fn print_html(&self, out: &mut impl Write, allocator: &Allocator)
+    fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator)
                   -> Result<()> {
         for node in self.iter_node(allocator) {
             node.print_html(out, allocator)?;
@@ -1336,7 +1336,7 @@ impl<T: AllocatorType> Print for ASlice<T> {
         Ok(())
     }
 
-    fn print_plain(&self, out: &mut String, allocator: &Allocator)
+    fn print_plain(&self, out: &mut String, allocator: &HtmlAllocator)
                    -> Result<()> {
         for node in self.iter_node(allocator) {
             node.print_plain(out, allocator)?;
@@ -1347,7 +1347,7 @@ impl<T: AllocatorType> Print for ASlice<T> {
 
 
 impl Print for (KString, KString) {
-    fn print_html(&self, out: &mut impl Write, allocator: &Allocator)
+    fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator)
              -> Result<()> {
         out.write_all(self.0.as_bytes())?; // XX no escape ever needed?
         out.write_all(b"=\"")?;
@@ -1356,7 +1356,7 @@ impl Print for (KString, KString) {
         Ok(())
     }
 
-    fn print_plain(&self, _out: &mut String, _allocator: &Allocator) -> Result<()> {
+    fn print_plain(&self, _out: &mut String, _allocator: &HtmlAllocator) -> Result<()> {
         panic!("attributes are never printed in print_plain for Node:s")
     }
 }
@@ -1394,7 +1394,7 @@ impl Node {
 }
 
 impl Print for Node {
-    fn print_html(&self, out: &mut impl Write, allocator: &Allocator) -> Result<()>
+    fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator) -> Result<()>
     {
         Ok(match self {
             Node::Element(e) => e.print_html(out, allocator)?,
@@ -1404,7 +1404,7 @@ impl Print for Node {
             Node::None => (),
         })
     }
-    fn print_plain(&self, out: &mut String, allocator: &Allocator) -> Result<()>
+    fn print_plain(&self, out: &mut String, allocator: &HtmlAllocator) -> Result<()>
     {
         match self {
             Node::Element(e) => e.print_plain(out, allocator),
@@ -1439,7 +1439,7 @@ impl Element {
     pub fn try_filter_map_body<'a, T: AllocatorType>(
         &self,
         f: impl Fn(AId<Node>) -> Result<Option<AId<Node>>>,
-        allocator: &'a Allocator
+        allocator: &'a HtmlAllocator
     ) -> Result<Element> {
         let body2 = self.body.try_filter_map(f, None, allocator)?;
         Ok(Element {
@@ -1452,7 +1452,7 @@ impl Element {
     pub fn try_flat_map_body<'a, T: AllocatorType>(
         &self,
         f: impl Fn(AId<Node>) -> Result<Flat<Node>>,
-        allocator: &'a Allocator
+        allocator: &'a HtmlAllocator
     ) -> Result<Element> {
         let body2 = self.body.try_flat_map(f, None, allocator)?;
         Ok(Element {
@@ -1464,7 +1464,7 @@ impl Element {
 }
 
 impl Print for Element {
-    fn print_html(&self, out: &mut impl Write, allocator: &Allocator)
+    fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator)
              -> Result<()>
     {
         let meta = self.meta;
@@ -1485,18 +1485,18 @@ impl Print for Element {
         Ok(())
     }
 
-    fn print_plain(&self, out: &mut String, allocator: &Allocator) -> Result<()> {
+    fn print_plain(&self, out: &mut String, allocator: &HtmlAllocator) -> Result<()> {
         self.body.print_plain(out, allocator)
     }
 }
 
 
 pub trait TryCollectBody {
-    fn try_collect_body(&mut self, html: &Allocator) -> Result<ASlice<Node>>;
+    fn try_collect_body(&mut self, html: &HtmlAllocator) -> Result<ASlice<Node>>;
 }
 
 impl<I: Iterator<Item = Result<AId<Node>>>> TryCollectBody for I {
-    fn try_collect_body(&mut self, html: &Allocator) -> Result<ASlice<Node>> {
+    fn try_collect_body(&mut self, html: &HtmlAllocator) -> Result<ASlice<Node>> {
         let mut v = html.new_vec::<Node>();
         for item in self {
             v.push(item?)?;

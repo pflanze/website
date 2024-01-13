@@ -8,7 +8,7 @@ use anyhow::{Result, anyhow, bail, Context};
 use chrono::NaiveDate;
 use kstring::KString;
 
-use crate::{ahtml::{SerHtmlFrag, Allocator, AllocatorPool, AVec, Node, att},
+use crate::{ahtml::{SerHtmlFrag, HtmlAllocator, AllocatorPool, AVec, Node, att},
             router::UniqueRouter,
             util::first_and_rest,
             markdown::{MarkdownFile, StylingInterface},
@@ -157,7 +157,7 @@ static CONTEXT: &'static [ContextFrame] = &[
 
 
 fn breadcrumbhtml<'f>(
-    html: &Allocator,
+    html: &HtmlAllocator,
     parsed_context: &'f List<ParsedContextFrame<'f>>,
     top_relpath: &str, // "." or ".."
 ) -> Result<Arc<SerHtmlFrag>> {
@@ -195,7 +195,7 @@ fn breadcrumbhtml<'f>(
 }
 
 fn breadcrumb<'f>(
-    html: &Allocator,
+    html: &HtmlAllocator,
     parsed_context: &'f List<ParsedContextFrame<'f>>,
 ) -> Result<Breadcrumb> {
     Ok(Breadcrumb {
@@ -213,7 +213,7 @@ fn populate<'f, 'c>(
     parsed_context: &'f List<ParsedContextFrame<'f>>,
     fsdirpath: &Path,
     fsbasepath: &Path,
-    html: &Allocator,
+    html: &HtmlAllocator,
     style: &dyn StylingInterface,
 ) -> Result<()> {
     dt!("populate", fsdirpath);
@@ -470,7 +470,7 @@ impl BlogCache {
     fn from_dir(
         basepath: &Path,
         oldtrie: Option<&Trie<BlogNode>>, // for the same basepath, please
-        html: &Allocator,
+        html: &HtmlAllocator,
         style: &dyn StylingInterface
     ) -> Result<BlogCache> {
         notime!{

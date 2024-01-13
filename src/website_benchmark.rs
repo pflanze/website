@@ -7,7 +7,7 @@ use crate::arequest::ARequest;
 use crate::aresponse::AResponse;
 use crate::http_request_method::HttpRequestMethodSimple;
 use crate::http_response_status_codes::HttpResponseStatusCode;
-use crate::ahtml::{Allocator, Node};
+use crate::ahtml::{HtmlAllocator, Node};
 use crate::webutils::htmlresponse;
 
 
@@ -21,7 +21,7 @@ lazy_static! {
 
 pub fn benchmark<'a>(_request: &ARequest,
                      _method: HttpRequestMethodSimple,
-                     alloc: &Allocator)
+                     alloc: &HtmlAllocator)
             -> Result<AResponse>
 {
     htmlresponse(alloc, HttpResponseStatusCode::OK200, |h| {

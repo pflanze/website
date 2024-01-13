@@ -9,7 +9,7 @@ use kstring::KString;
 use lazy_static::lazy_static;
 use rouille::{start_server, Response};
 use website::{nav::{Nav, NavEntry, SubEntries},
-              ahtml::{AllocatorPool, Allocator},
+              ahtml::{AllocatorPool, HtmlAllocator},
               webparts::{markdownpage_handler, server_handler, LayoutInterface},
               router::MultiRouter,
               handler::{Handler, FileHandler, FnHandler},
@@ -41,7 +41,7 @@ fn files_handler(templates_base: impl IntoBoxPath,
     let templates_base = templates_base.into_box_path();
     let data_files_dir = data_files_dir.into_box_path();
     Arc::new(FnHandler(
-        move |request: &ARequest, pathrest: &PPath<KString>, html: &Allocator|
+        move |request: &ARequest, pathrest: &PPath<KString>, html: &HtmlAllocator|
                                                    -> Result<Option<Response>> {
             let mut fileitems = html.new_vec();
             for file in files_in_storage(&*data_files_dir)? {

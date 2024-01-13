@@ -2,7 +2,7 @@
 use std::fmt::Write;
 use std::sync::Mutex;
 
-use website::ahtml::{AllocatorPool, Allocator, Node};
+use website::ahtml::{AllocatorPool, HtmlAllocator, Node};
 use anyhow::{Result, Error};
 use website::http_response_status_codes::HttpResponseStatusCode;
 use lazy_static::lazy_static;
@@ -21,7 +21,7 @@ lazy_static! {
     static ref STATE: Mutex<State> = Mutex::new(State { counter: 0 });
 }
 
-fn root(alloc: &Allocator) -> Result<Response> {
+fn root(alloc: &HtmlAllocator) -> Result<Response> {
     htmlresponse(alloc, HttpResponseStatusCode::OK200, |h| {
         let lit = |s| h.staticstr(s);
         let string = |s| h.string(s);

@@ -7,7 +7,7 @@ use imagesize::{self, ImageSize};
 use kstring::KString;
 use lazy_static::lazy_static;
 
-use crate::ahtml::{AId, Node, Allocator};
+use crate::ahtml::{AId, Node, HtmlAllocator};
 use crate::notime as time;
 
 
@@ -44,7 +44,7 @@ pub fn imageinfo(path: &str) -> Result<ImageSize> {
     Ok(siz)
 }
 
-pub fn static_img(html: &Allocator,
+pub fn static_img(html: &HtmlAllocator,
                   path: &str,
                   src: &str,
                   alt: &str,

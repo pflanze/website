@@ -5,7 +5,7 @@ use html5gum::{Token, HtmlString};
 use kstring::KString;
 use pulldown_cmark::{Parser, Options, Event, Tag, HeadingLevel, LinkType};
 
-use crate::{ahtml::{AId, Allocator, Node, AVec, P_META,
+use crate::{ahtml::{AId, HtmlAllocator, Node, AVec, P_META,
                      H1_META, H2_META, H3_META, H4_META, H5_META, H6_META,
                      DIV_META, OL_META, UL_META, LI_META, PRE_META,
                      BLOCKQUOTE_META, TABLE_META, TH_META, TR_META,
@@ -38,14 +38,14 @@ fn kstring(s: HtmlString) -> Result<KString> {
 pub trait StylingInterface: Send + Sync + RefUnwindSafe {
     fn new_context<'c>(
         &'c self,
-        html: &Allocator,
+        html: &HtmlAllocator,
     ) -> Result<Box<dyn StylingContextInterface<'c> + 'c>>;
 }
 
 pub trait StylingContextInterface<'c> {
     fn format_footnote_definition(
         &self,
-        html: &Allocator,
+        html: &HtmlAllocator,
         reference: &Footnoteref,
         backreferences: &[Backref],
         clean_slice: &ASlice<Node>,
@@ -54,7 +54,7 @@ pub trait StylingContextInterface<'c> {
     fn format_footnotes(
         &self,
         body: ASlice<Node>,
-        html: &Allocator,
+        html: &HtmlAllocator,
     ) -> Result<AId<Node>>;
 }
 
@@ -182,7 +182,7 @@ impl MarkdownHeading {
     }
 
     fn to_toc_html_fragment(
-        &self, html: &Allocator
+        &self, html: &HtmlAllocator
     ) -> Result<AId<Node>> {
         let mut body = html.new_vec();
         for subheading in &self.subheadings {
@@ -315,7 +315,7 @@ impl MarkdownMeta {
     // with it, OK? &Vec<MarkdownHeading> is now the thing to be generic on?
     // Alright, should then do function on *that* ^, todo?
     pub fn toc_html_fragment(
-        &self, html: &Allocator
+        &self, html: &HtmlAllocator
     ) -> Result<AId<Node>> {
         let headings = self.title_and_remaining_headings().1;
         let mut body = html.new_vec();
@@ -345,7 +345,7 @@ impl MarkdownMeta {
     // in markdown.rs, though.
     pub fn footnotes_html_fragment(
         &self,
-        html: &Allocator,
+        html: &HtmlAllocator,
         style: &dyn StylingInterface,
     ) -> Result<(usize, AId<Node>)> {
         let mut footnotes: Vec<_> = self.footnotes.iter().collect();
@@ -405,7 +405,7 @@ impl MarkdownMeta {
 
     /// Like `title` but as a string with markup stripped, and falling
     /// back to `alternative` if not present.
-    pub fn title_string(&self, html: &Allocator, alternative: &str)
+    pub fn title_string(&self, html: &HtmlAllocator, alternative: &str)
                         -> Result<KString>
     {
         if let Some(sl) = self.title() {
@@ -437,7 +437,7 @@ impl ProcessedMarkdown {
     pub fn html(&self) -> AId<Node> { self.html }
     pub fn meta(&self) -> &MarkdownMeta { &self.meta }
 
-    pub fn fixed_html(&self, html: &Allocator) -> Result<AId<Node>> {
+    pub fn fixed_html(&self, html: &HtmlAllocator) -> Result<AId<Node>> {
         // Which is the top level we *want*?
         let (opt_title, _heading, do_drop_h1) =
             self.meta.title_and_remaining_headings();
@@ -586,7 +586,7 @@ impl MarkdownFile {
     /// Convert to HTML, and capture metainformation to allow for
     /// creation of TOC and footnotes section.
     pub fn process_to_html(
-        &self, html: &Allocator
+        &self, html: &HtmlAllocator
     ) -> Result<ProcessedMarkdown>
     {
         let mut options = Options::empty();

@@ -9,7 +9,7 @@ use httpdate::{fmt_http_date, parse_http_date};
 use kstring::KString;
 use rouille::{Response, extension_to_mime, ResponseBody};
 use crate::arequest::ARequest;
-use crate::ahtml::Allocator;
+use crate::ahtml::HtmlAllocator;
 use crate::aresponse::AResponse;
 use crate::http_request_method::HttpRequestMethodSimple;
 use crate::http_response_status_codes::HttpResponseStatusCode;
@@ -136,7 +136,7 @@ pub trait Handler: Debug + Send + Sync {
         request: &ARequest,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
-        html: &Allocator)
+        html: &HtmlAllocator)
         -> Result<Option<AResponse>>;
 }
 
@@ -185,7 +185,7 @@ impl Handler for FileHandler {
         request: &ARequest,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
-        _html: &Allocator)
+        _html: &HtmlAllocator)
         -> Result<Option<AResponse>> {
         if method.is_post() {
             bail!("can't POST to a file")
@@ -328,10 +328,10 @@ impl Handler for FileHandler {
 /// Fn. The handler may still refuse to handle the request (404).
 #[derive(Clone, Copy)]
 pub struct FnHandler<F>(pub F)
-where F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &Allocator)
+where F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
             -> Result<Option<AResponse>> + Send + Sync;
 
-impl<F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &Allocator)
+impl<F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
            -> Result<Option<AResponse>> + Send + Sync>
     Handler for FnHandler<F>
 {
@@ -340,13 +340,13 @@ impl<F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &Allocator)
         request: &ARequest,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
-        html: &Allocator) -> Result<Option<AResponse>>
+        html: &HtmlAllocator) -> Result<Option<AResponse>>
     {
         self.0(request, method, pathrest, html)
     }
 }
 
-impl<F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &Allocator)
+impl<F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
            -> Result<Option<AResponse>> + Send + Sync>
     Debug for FnHandler<F>
 {
@@ -359,10 +359,10 @@ impl<F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &Allocator)
 /// A Handler that does not allow a path surplus, passing it to the handler Fn.
 #[derive(Clone, Copy)]
 pub struct ExactFnHandler<F>(pub F)
-where F: Fn(&ARequest, HttpRequestMethodSimple, &Allocator)
+where F: Fn(&ARequest, HttpRequestMethodSimple, &HtmlAllocator)
             -> Result<AResponse> + Send + Sync;
 
-impl<F: Fn(&ARequest, HttpRequestMethodSimple, &Allocator)
+impl<F: Fn(&ARequest, HttpRequestMethodSimple, &HtmlAllocator)
            -> Result<AResponse> + Send + Sync>
     Handler
     for ExactFnHandler<F>
@@ -372,7 +372,7 @@ impl<F: Fn(&ARequest, HttpRequestMethodSimple, &Allocator)
         request: &ARequest,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
-        html: &Allocator) -> Result<Option<AResponse>>
+        html: &HtmlAllocator) -> Result<Option<AResponse>>
     {
         if pathrest.segments().is_empty() {
             Ok(Some(self.0(request, method, html)?))
@@ -383,7 +383,7 @@ impl<F: Fn(&ARequest, HttpRequestMethodSimple, &Allocator)
     }
 }
 
-impl<F: Fn(&ARequest, HttpRequestMethodSimple, &Allocator)
+impl<F: Fn(&ARequest, HttpRequestMethodSimple, &HtmlAllocator)
            -> Result<AResponse> + Send + Sync>
     Debug
     for ExactFnHandler<F>
@@ -446,7 +446,7 @@ where F: Fn(&ARequest) -> String + Send + Sync,
         request: &ARequest,
         _method: HttpRequestMethodSimple,
         _pathrest: &PPath<KString>,
-        _html: &Allocator)
+        _html: &HtmlAllocator)
         -> Result<Option<AResponse>> {
         let target = (self.calculate_target)(request);
         let responder = map_redirect(self.code).expect("already checked earlier");

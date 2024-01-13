@@ -7,7 +7,7 @@ use kstring::KString;
 
 use crate::{webparts::LayoutInterface,
             arequest::ARequest,
-            ahtml::{Allocator, AId, Node, Flat, ToASlice, att},
+            ahtml::{HtmlAllocator, AId, Node, Flat, ToASlice, att},
             nav::{Nav, ToHtml},
             time_util::LocalYear,
             warn};
@@ -24,14 +24,14 @@ pub struct WebsiteLayout {
     pub site_name: &'static str,
     pub copyright_owner: &'static str,
     pub nav: &'static Nav<'static>,
-    pub header_contents: Box<dyn Fn(&Allocator) -> Result<Flat<Node>> + Send + Sync>,
+    pub header_contents: Box<dyn Fn(&HtmlAllocator) -> Result<Flat<Node>> + Send + Sync>,
 }
 
 impl LayoutInterface for WebsiteLayout {
     fn page(
         &self,
         request: &ARequest,
-        html: &Allocator,
+        html: &HtmlAllocator,
         // Can't be preserialized HTML, must be string node:
         head_title: Option<AId<Node>>,
         // Same contents as head_title, but may be preserialized HTML;
