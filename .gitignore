@@ -1,0 +1,6 @@
+playground
+# from e.g. rustc --crate-type lib src/playground.rs
+*.rlib
+accounts.db
+accounts.db.*
+/.cargo/

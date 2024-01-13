@@ -1,0 +1,20 @@
+#!/bin/bash
+set -euo pipefail
+# enable job control consistently, not just when there is a tty:
+set -m
+IFS=
+
+netreceive -z
+
+if ! cmp --silent target/release/website target/website; then
+    # Even overwriting the binary via cat will void the CAP info. Thus
+    # just do the rename dance and always ask for root assistance,
+    # bummer. Idea: wrapper binary that reloads the Rust program as
+    # shared lib?? Or make a setcap service.
+    mvnumber target/website || true
+    mv target/release/website target/website
+    echo "run as root, then hit enter:  setcap CAP_NET_BIND_SERVICE=+eip $(chase target/website)"
+    read line
+    init-website restart
+fi
+

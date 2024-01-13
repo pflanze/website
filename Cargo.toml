@@ -1,0 +1,69 @@
+[package]
+name = "website"
+version = "0.1.0"
+edition = "2021"
+authors = ["Christian Jaeger <ch@christianjaeger.ch>"]
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+anyhow = "1.0.14"
+thiserror = "1.0"
+kstring = "1.0"
+num = "0.4"
+serde = { version = "1.0.154", features = ["derive"] }
+serde_json= "1.0"
+chrono = { version = "0.4.30", default-features = false, features = ["std", "alloc", "clock"] }
+# 0.6's (indirect) dependency phf_codegen can't be handled with cargo 1.46.0
+# [Does not matter any more though]
+#chrono-tz = "0.5.3"
+lazy_static = "1.4.0"
+itertools = "0.10"
+imagesize = "0.12"
+sqlite = { version = "0.30", default-features = false, features = [] }
+scoped-thread-pool = "1.0"
+clap = { version = "3", features = ["derive"] }
+base64 = "0.13"
+argon2 = "0.5"
+rand = "0.8.5"
+rand_distr = "0.4.3"
+
+# axum = "0.5.17"
+# tokio = { version = "1.28.2", features = ["full"] }
+# horrorshow = "0.8.4"
+http-body = "0.4"
+
+# Use Rouille instead:
+#rouille = { version = "3.6", default-features = true, features = ["rustls"] }
+rouille = { path = "../src/rouille", default-features = true, features = ["rustls"] }
+httpdate = "1.0"
+
+# pulldown-cmark = { version = "0.9.3", default-features = false, features = ["simd"] }
+pulldown-cmark = { version = "0.9", default-features = false, features = [] }
+html5gum = { version = "0.5", default-features = false, features = [] }
+
+backtrace = "0.3"
+getrandom = "0.2"
+cmark-syntax = { version = "0.4", default-features = false }
+
+
+[build-dependencies]
+pkg-config = "0.3"
+
+[profile.dev]
+panic = "abort"
+# [profile.release]
+# panic = "abort"
+lto = "off"
+# ^ XX does this help ?
+
+# Set the default for dependencies.
+[profile.dev.package."*"]
+opt-level = 2
+
+
+[profile.release]
+# lto = false
+# default anyway?
+# lto = "off"
+# ^ XX does this help ?
+overflow-checks = true

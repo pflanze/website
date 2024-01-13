@@ -1,0 +1,586 @@
+
+//! Components making up a website, parameterized via a trait.
+
+use std::{path::PathBuf, sync::{Arc, Mutex}, time::{SystemTime, Instant, Duration}, fmt::Debug};
+
+use anyhow::{Result, Context, anyhow, bail};
+use chrono::NaiveDate;
+use kstring::KString;
+use rand::{prelude::thread_rng, Rng};
+use rand_distr::Weibull;
+use rouille::{Response, Request, post_input, session::session};
+use scoped_thread_pool::Pool;
+
+use crate::{arequest::ARequest,
+            ahtml::{Allocator, AId, Node, P_META, TryCollectBody, AllocatorPool,
+                    att, opt_att},
+            webutils::{htmlresponse, request_resolve_relative, errorpage_from_status},
+            http_response_status_codes::HttpResponseStatusCode,
+            markdown::MarkdownFile,
+            handler::{Handler, ExactFnHandler, FnHandler},
+            blog::{Blog, BlogNode, BlogPostIndex},
+            ppath::PPath,
+            trie::TrieIterReportStyle,
+            apachelog::{Logs, log_combined},
+            hostrouter::HostsRouter,
+            http_request_method::{HttpRequestMethodGrouped, HttpRequestMethodSimple},
+            access_control::{check_username_password, CheckAccessErrorKind, transaction, db::access_control_transaction, types::SessionData},
+            in_threadpool::in_threadpool,
+            aresponse::{AResponse, ToAResponse},
+            time_util, ipaddr_util::IpAddrOctets};
+use crate::{try_result, warn, nodt, time_guard};
+
+// ------------------------------------------------------------------
+// The mid-level parts
+
+/// Make a handler for Rouille's `start_server` procedure.
+pub fn server_handler<'t>(
+    listen_addr: String,
+    hostsrouter: Arc<HostsRouter>,
+    allocatorpool: &'static AllocatorPool,
+    threadpool: Arc<Pool>,
+) -> impl for<'r> Fn(&'r Request) -> Response {
+    move |request: &Request| -> Response {
+        time_guard!("server_handler"); // timings including infrastructure cost
+        session(request, "sid", 3600 /*sec*/, |session| {
+            let aresponse = in_threadpool(threadpool.clone(), || -> AResponse {
+                // {
+                //     let mut buf = [0u8; 1];
+                //     getrandom::getrandom(&mut buf).expect("getrandom should work");
+                //     if buf[0] > 200 {
+                //         panic!("letzs'see");
+                //     }
+                // }
+                let okhandler = |request| -> AResponse {
+                    log_combined(
+                        &request,
+                        || -> (Arc<Mutex<Logs>>, anyhow::Result<AResponse>) {
+                            let method = request.method();
+                            let unimplemented = |methodname| {
+                                warn!("method {methodname:?} not implemented (yet)");
+                                (hostsrouter.logs.clone(),
+                                 Ok(errorpage_from_status(
+                                     HttpResponseStatusCode::NotImplemented501).into()))
+                            };
+                            match method.to_grouped() {
+                                HttpRequestMethodGrouped::Simple(simplemethod) => {
+                                    let mut guard = allocatorpool.get();
+                                    let allocator = guard.allocator();
+                                    if let Some(host) = request.host() {
+                                        let lchost = host.to_lowercase();
+                                        if let Some(hostrouter) = hostsrouter.routers.get(
+                                            &KString::from_string(lchost))
+                                        {
+                                            return hostrouter.handle_request(
+                                                &request, simplemethod, allocator)
+                                        }
+                                    }
+                                    if let Some(fallback) = &hostsrouter.fallback {
+                                        return fallback.handle_request(
+                                            &request, simplemethod, allocator)
+                                    }
+                                }
+                                HttpRequestMethodGrouped::Document(documentmethod) => {
+                                    return unimplemented(
+                                        documentmethod.to_http_request_method().as_str())
+                                }
+                                HttpRequestMethodGrouped::Special(specialmethod) =>
+                                    // XX should at least implement OPTIONS, or ?
+                                    return unimplemented(
+                                        specialmethod.to_http_request_method().as_str())
+                                    // match specialmethod {
+                                    //     HttpRequestMethodSpecial::OPTIONS =>
+                                    //         return unimplemented(),
+                                    //     HttpRequestMethodSpecial::TRACE =>
+                                    //         return unimplemented(),
+                                    //     HttpRequestMethodSpecial::CONNECT =>
+                                    //         return unimplemented(),
+                                    // },
+                            }
+                            (hostsrouter.logs.clone(),
+                             Ok(errorpage_from_status(HttpResponseStatusCode::NotFound404)
+                                .into()))
+                        })
+                };
+                match ARequest::new(request, &listen_addr, session) {
+                    Ok(request) => okhandler(request),
+                    Err(e) => {
+                        warn!("{e}");
+                        errorpage_from_status(
+                            HttpResponseStatusCode::InternalServerError500).into()
+                    }
+                }
+            }).expect("only ever fails if thread fails outside catch_unwind");
+            let AResponse { response, sleep_until } = aresponse;
+            if let Some(t) = sleep_until {
+                time_util::sleep_until(t);
+            }
+            response
+        })
+    }
+}
+
+// ------------------------------------------------------------------
+// The mid-level parts, building elements
+
+pub fn pair<'a>(html: &'a Allocator) -> impl Fn(AId<Node>, AId<Node>) -> Result<AId<Node>> + 'a
+{
+    move |a, b| {
+        html.div([att("class", "pair")],
+                 [
+                     html.div([att("class", "pair_a")],
+                              [a])?,
+                     html.div([att("class", "pair_b")],
+                              [b])?,
+                 ])
+    }
+}
+
+// pub fn single<'a>(html: &'a Allocator) -> impl Fn(AId<Node>) -> Result<AId<Node>> + 'a
+// {
+//     move |a| {
+//         html.div([att("class", "single")],
+//                  [a])
+//     }
+// }
+
+pub fn buttonrow<'a, const N: usize>(
+    html: &'a Allocator
+) -> impl Fn([AId<Node>; N]) -> Result<AId<Node>> + 'a
+{
+    move |buttons| {
+        html.div([att("class", "buttonrow")],
+                 buttons)
+    }
+}
+
+pub fn dialog_box<'a>(html: &'a Allocator)
+                      -> impl Fn(AId<Node>, AId<Node>) -> Result<AId<Node>> + 'a
+{
+    move |title, body| {
+        html.div([att("class", "dialog_box_container")],
+                 [
+                     html.div([att("class", "dialog_box")],
+                              [
+                                  html.div([att("class", "dialog_box_title")],
+                                           [title])?,
+                                  html.div([att("class", "dialog_box_body")],
+                                           [body])?
+                              ])?
+                 ])
+    }
+}
+
+// ------------------------------------------------------------------
+// The higher-level parts, building blocks
+
+pub trait LayoutInterface: Send + Sync {
+    /// Build a whole HTML page from the given parts
+    fn page(
+        &self,
+        request: &ARequest,
+        html: &Allocator,
+        // Can't be preserialized HTML, must be string node. If
+        // missing, a default title should be used (usually the site
+        // name that would be appended or prepended to the title):
+        head_title: Option<AId<Node>>,
+        // Used inside the body. Same contents as head_title, but may
+        // be preserialized HTML; must not contain wrapper element
+        // like <h1>:
+        title: Option<AId<Node>>,
+        breadcrumb: Option<AId<Node>>,
+        toc: Option<AId<Node>>,
+        lead: Option<AId<Node>>,
+        main: AId<Node>,
+        footnotes: Option<AId<Node>>,
+        last_modified: Option<SystemTime>,
+    ) -> Result<AId<Node>>;
+
+    fn blog_index_title(
+        &self,
+        subpath_segments: Option<&[KString]> // path segments if below main page
+    ) -> String;
+}
+
+/// This re-parses the markdown on every request.
+fn markdownprocessor(
+    style: Arc<dyn LayoutInterface>,
+    request: &ARequest,
+    path: PathBuf,
+    html: &Allocator    
+) -> Result<AResponse>
+{
+    htmlresponse(html, HttpResponseStatusCode::OK200, |html| {
+        let stat = path.metadata().with_context(
+            || anyhow!("stat on {:?}", path.to_string_lossy()))?;
+        let mdfile = MarkdownFile::new(path);
+        let pmd = mdfile.process_to_html(html)?;
+        let title =
+            if let Some(body) = pmd.meta().title() {
+                // body can contain <P> if it's a sep para within <title>, so unwrap it
+                Some(html.span([], body.unwrap_elements(*P_META, false, html)?)?)
+            } else {
+                None
+            };
+        // XX process footnotes!
+        style.page(
+            request,
+            html,
+            // html.kstring(mdmeta.title_string(html, "(missing title)")?)?,
+            title,
+            title,
+            None, // breadcrumb
+            None, // XX just turn off globally  Some(pmd.meta().toc_html_fragment(html)?),
+            None, // lead XX?
+            pmd.fixed_html(html)?,
+            None, // XX
+            Some(stat.modified()?)
+        )
+    }).map(AResponse::from)
+}
+
+// Convenience to place an md file from a particular fspath to a
+// particular routing point.
+pub fn markdownpage_handler(
+    path: &str,
+    style: Arc<dyn LayoutInterface>
+) -> Arc<dyn Handler>
+{
+    let path = PathBuf::from(path);
+    Arc::new(ExactFnHandler(
+        move |
+        request: &ARequest, method: HttpRequestMethodSimple, html: &Allocator
+            | -> Result<AResponse>
+        {
+            if method.is_post() {
+                bail!("can't POST to a markdownpage"); // currently, anyway
+            }
+            markdownprocessor(style.clone(), request, path.clone(), html)
+        }
+    ))
+}
+
+
+fn format_naivedate(nd: NaiveDate) -> String {
+    format!("{}", nd)
+}
+
+pub fn blog_handler(blog: Arc<Blog>, style: Arc<dyn LayoutInterface>) -> Arc<dyn Handler>
+{
+    // dbg!(&blog.blogcache());
+    Arc::new(FnHandler(
+        move |
+        request: &ARequest,
+        method: HttpRequestMethodSimple,
+        path: &PPath<KString>,
+        html: &Allocator
+            | -> Result<Option<AResponse>>
+        {
+            nodt!("blog", path);
+            if method.is_post() {
+                bail!("can't POST to blog"); // currently, anyway
+            }
+            let with_slash = request.path().ends_with_slash();
+            let blogcache = blog.blogcache();
+            if let Some(trie) = blogcache.router.get_trie(path) {
+                let blognode = trie.endpoint().expect(
+                    "every trie node in a blog trie has an endpoint");
+                match blognode {
+                    BlogNode::BlogPost(blogpost) => {
+                        nodt!("blogpost", pathrest);
+                        
+                        // an individual post; XX check that the part of
+                        // the path used contains the date?
+                        let head_title = html.kstring(blogpost.title_plain.clone())?;
+                        let title = html.preserialized(&blogpost.title_html)?;
+                        let toc = html.preserialized(&blogpost.toc)?;
+                        let lead = blogpost.lead.as_ref()
+                            .map(|a| html.preserialized(a)).transpose()?;
+                        let main = html.preserialized(&blogpost.main)?;
+                        let opt_footnotes =
+                            if blogpost.num_footnotes > 0 {
+                                Some(html.preserialized(&blogpost.footnotes)?)
+                            } else {
+                                None
+                            };
+                        let breadcrumb =
+                            html.preserialized(blogpost.breadcrumb.with_slash(
+                                with_slash))?;
+                        let resp =
+                            htmlresponse(html, HttpResponseStatusCode::OK200, |html| {
+                                Ok(style.page(
+                                    request,
+                                    html,
+                                    Some(head_title),
+                                    Some(title),
+                                    Some(breadcrumb),
+                                    Some(toc),
+                                    lead,
+                                    main,
+                                    opt_footnotes,
+                                    Some(blogpost.modified())
+                                )?)
+                            })?;
+                        Ok(Some(resp.into()))
+                    }
+                    BlogNode::BlogPostIndex(BlogPostIndex { breadcrumb }) => {
+                        nodt!("blog index");
+                        let iter = trie.iter(true,
+                                             TrieIterReportStyle::BeforeRecursing);
+                        let resp =
+                            htmlresponse(html, HttpResponseStatusCode::OK200, |html| {
+                                let (archivetitle, breadcrumb) =
+                                    if let Some(breadcrumb) = breadcrumb {
+                                        (
+                                            html.string(
+                                                style.blog_index_title(Some(path.segments())))?,
+                                            Some(html.preserialized(
+                                                breadcrumb.with_slash(with_slash))?)
+                                        )
+                                    } else {
+                                        (
+                                            html.string(
+                                                style.blog_index_title(None))?,
+                                            None
+                                        )
+                                    };
+                                style.page(
+                                    request,
+                                    html,
+                                    Some(archivetitle),
+                                    Some(archivetitle),
+                                    breadcrumb,
+                                    None, // toc
+                                    None, // lead
+                                    html.ul(
+                                        [],
+                                        iter.filter_map(
+                                            |(path1, trie)| -> Option<Result<AId<Node>>> {
+                                                let r: Result<Option<AId<Node>>> = try_result!{
+                                                    let blognode =
+                                                        trie.endpoint().expect(
+                                                            "every trie node in a blog trie \
+                                                             has an endpoint");
+                                                    let blogpost =
+                                                        match blognode {
+                                                            BlogNode::BlogPost(p) => p,
+                                                            BlogNode::BlogPostIndex(_) => {
+                                                                return Ok(None)
+                                                            }
+                                                       };
+
+                                                    let datestr =
+                                                        format_naivedate(
+                                                            blogpost.publish_date);
+                                                    let url =
+                                                        request_resolve_relative(
+                                                            request,
+                                                            PPath::new(false, false,
+                                                                       path1));
+                                                    Ok(Some(html.li(
+                                                        [],
+                                                        [
+                                                            html.str(&datestr)?,
+                                                            html.str(" - ")?,
+                                                            html.a(
+                                                                [att("href", &url)],
+                                                                [
+                                                                    html.preserialized(
+                                                                        &blogpost.title_html)?
+                                                                ])?
+                                                        ])?))
+                                                };
+                                                r.transpose()
+                                            }).try_collect_body(html)?)?,
+                                    None,
+                                    None)
+                            })?;
+                        Ok(Some(resp.into()))
+                    }
+                }
+            } else {
+                Ok(None)
+            }
+        }))
+}
+
+
+pub fn login_handler(style: Arc<dyn LayoutInterface>) -> Arc<dyn Handler> {
+    Arc::new(FnHandler(
+        move |
+        request: &ARequest,
+        method: HttpRequestMethodSimple,
+        _path: &PPath<KString>,
+        html: &Allocator
+            | -> Result<Option<AResponse>>
+        {
+            let show_form =
+                |
+            error: Option<String>,
+            username: Option<String>,
+            return_path: Option<String>,
+                | -> Result<Option<Response>>
+            {
+                let pair = pair(html);
+                let buttonrow = buttonrow(html);
+                let dialog_box = dialog_box(html);
+                let form = html.form(
+                    [att("action", request.path_str()), att("method", "POST")],
+                    [
+                        if let Some(error) = error {
+                            html.div([att("class", "form_error")],
+                                     [html.string(error)?])?
+                        } else {
+                            html.empty_node()?
+                        },
+                        pair(html.str("Username:")?,
+                             html.input([att("name", "username"), att("type", "text"),
+                                         opt_att("value", username)],
+                                        [])?)?,
+                        pair(html.str("Password:")?,
+                             html.input([att("name", "password"), att("type", "password")],
+                                        [])?)?,
+                        if let Some(return_path) = return_path {
+                            html.input([att("name", "return_path"), att("type", "hidden"),
+                                        att("value", return_path)],
+                                       [])?
+                        } else {
+                            html.empty_node()?
+                        },
+                        buttonrow([
+                            html.button([att("type", "submit")],
+                                        [html.str("OK")?])?
+                        ])?,
+                    ])?;
+
+                Ok(Some(htmlresponse(html, HttpResponseStatusCode::OK200, |html| {
+                    style.page(
+                        request,
+                        html,
+                        None,
+                        None,
+                        None,
+                        None,
+                        None,
+                        dialog_box(
+                            html.string(format!("Login for {}",
+                                                request.host_or_listen_addr()))?,
+                            form)?,
+                        None,
+                        None)
+                    })?))
+            };
+
+            let immediate = |response: Result<Option<Response>>| -> Result<Option<AResponse>>
+            {
+                response.map(|v| v.map(AResponse::from))
+            };
+            if method.is_post() {
+                let inp = post_input!(request.request(), {
+                    username: String,
+                    password: String,
+                    return_path: Option<String>
+                })?;
+                // Check rate limiting:
+                // access_control_transaction(|trans| {
+                //     // XX
+                //     Ok(())
+                // })?;
+                
+
+                // We are actually going to check the login:
+                let start: Instant = Instant::now();
+                let delayed = |response: Result<Option<Response>>| -> Result<Option<AResponse>>
+                {
+                    let _micros: Weibull<f64> = Weibull::new(1100000., 20.)?;
+                    let micros: f64 = thread_rng().sample(_micros);
+                    dbg!(micros);
+                    let target = start.checked_add(Duration::from_micros(micros as u64))
+                        .expect("does not fail (overflow) because we only add a second");
+                    response.map(|v| v.map(|r| r.to_aresponse(Some(target))))
+                };
+                match check_username_password(inp.username.trim(),
+                                              &inp.password) {
+                    Ok(Some(user)) => {
+                        // Mark session as logged in
+                        let user_id = user.id.expect("coming from db has an id");
+                        let session_id = request.session_id();
+                        let now = SystemTime::now();
+                        let _now_unixtime: u64 = now.duration_since(SystemTime::UNIX_EPOCH)
+                            .expect("no overflows, we are after epoch").as_secs();
+                        let now_unixtime = _now_unixtime as i64;
+                        let ip = request.client_ip().octets();
+                        access_control_transaction(|trans| -> Result<()> {
+                            // Check if the session is already active
+                            // (possible if data was stored before logging in)
+                            if let Some(mut sessiondata) =
+                                trans.get_sessiondata_by_sessionid(session_id)?
+                            {
+                                if let Some(prev_user_id) = sessiondata.user_id {
+                                    // Can happen if using back button
+                                    // to get back to login form and
+                                    // logging in again. Or not: if we
+                                    // redirect right away in this
+                                    // case -- XX
+                                    if prev_user_id != user_id {
+                                        // Not sure if this could happen.
+                                        bail!("logged in concurrently as another user? \
+                                               {prev_user_id} vs. {user_id}")
+                                    }
+                                    // Otherwise fine, do nothing except update timestamp
+                                } else {
+                                    sessiondata.user_id = Some(user_id);
+                                    if let Some(oldip) = &sessiondata.ip {
+                                        if *oldip != ip {
+                                            warn!("login on same session again, previously \
+                                                   from ip {oldip:?}, now {ip:?}");
+                                        }
+                                    }
+                                    sessiondata.ip = Some(ip);
+                                }
+                                sessiondata.last_request_time = now_unixtime;
+                                trans.update_sessiondata(&sessiondata)?;
+                            } else {
+                                // create it
+                                let sessiondata = SessionData {
+                                    id: None,
+                                    sessionid: session_id.into(),
+                                    last_request_time: now_unixtime,
+                                    user_id: Some(user_id),
+                                    ip: Some(ip),
+                                };
+                                trans.insert_sessiondata(&sessiondata)?;
+                            }
+                            Ok(())
+                        })?;
+                        
+                            
+                        let target = inp.return_path.unwrap_or("/".into());
+                        // *Does* it have to sleep when succeeding? It
+                        // does so that attackers cannot potentially
+                        // interpret the result early.
+                        delayed(
+                            Ok(Some(Response::redirect_302(target))))
+                    }
+                    Ok(None) => {
+                        delayed(
+                            show_form(Some("Invalid username or password".into()),
+                                      Some(inp.username),
+                                      inp.return_path))
+                    }
+                    Err(e) => match &*e {
+                        CheckAccessErrorKind::InputCheckFailure(e) => {
+                            immediate(
+                                show_form(Some(format!("{e}")),
+                                          Some(inp.username),
+                                          inp.return_path))
+                        }
+                        _ => Err(e)?
+                    }
+                }
+            } else {
+                let return_path = request.get_param("return_path");
+                immediate(show_form(None, None, return_path))
+            }
+        }))
+}

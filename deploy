@@ -1,0 +1,17 @@
+#!/bin/bash
+set -euo pipefail
+# enable job control consistently, not just when there is a tty:
+set -m
+IFS=
+set -x
+
+make test_website
+
+# Used to be:
+#  time RUSTFLAGS='-C target-feature=+crt-static' cargo build --release --target x86_64-unknown-linux-gnu  --bin website
+# but don't need static linking anymore now.
+time cargo build --release --bin website
+
+netsend deploy-receive resources/merged/elements/ data target/release/website
+
+gtag deployed
