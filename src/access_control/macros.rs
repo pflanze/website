@@ -13,6 +13,12 @@ macro_rules! get_statement {
                     rsth
                 } else {
                     let connectionp: *const Connection = $connection;
+                    // Safe because connection is pinned, in a private
+                    // field, and living as long as the reference
+                    // we're making here (XXX: we rely on lifetime
+                    // inference, which relies on the surrounding
+                    // function declaration, which means the macro
+                    // doesn't properly encapsulate it. TODO fix.)
                     let connection: &Connection = unsafe { &*connectionp };
                     let rsth = connection.prepare($sql);
                     $db.$select_field = Some(rsth);
