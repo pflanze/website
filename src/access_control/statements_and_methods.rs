@@ -185,7 +185,7 @@ impl<'t> Transaction<'t> {
     }
 }
 
-// XX remove and use user_in_group instead?
+// XX remove this and use user_in_group instead?
 defn_with_statement!(with_select_groupid_from_userid_groupname,
                      st_select_groupid_from_userid_groupname,
                      "select UserInGroup.group_id \

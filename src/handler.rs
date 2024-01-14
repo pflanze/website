@@ -161,6 +161,7 @@ pub trait Handler: Debug + Send + Sync {
 // ProxyHandler
 // FnHandler   or  rlly HtmlDynHandler and PlainDynHandler  and whatnot ?
 
+// ------------------------------------------------------------------
 /// Serve files from the local file system
 #[derive(Debug)]
 pub struct FileHandler {
@@ -324,6 +325,7 @@ impl Handler for FileHandler {
 }
 
 
+// ------------------------------------------------------------------
 /// A Handler that allows a path surplus, passing it to the handler
 /// Fn. The handler may still refuse to handle the request (404).
 #[derive(Clone, Copy)]
@@ -356,6 +358,7 @@ impl<F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
     }
 }
 
+// ------------------------------------------------------------------
 /// A Handler that does not allow a path surplus, passing it to the handler Fn.
 #[derive(Clone, Copy)]
 pub struct ExactFnHandler<F>(pub F)
@@ -394,6 +397,9 @@ impl<F: Fn(&ARequest, HttpRequestMethodSimple, &HtmlAllocator)
     }
 }
 
+
+// ------------------------------------------------------------------
+// Redirect handler
 
 pub fn map_redirect(code: HttpResponseStatusCode) -> Option<Box<dyn Fn(String) -> Response>>
 {
@@ -446,8 +452,8 @@ where F: Fn(&ARequest) -> String + Send + Sync,
         request: &ARequest,
         _method: HttpRequestMethodSimple,
         _pathrest: &PPath<KString>,
-        _html: &HtmlAllocator)
-        -> Result<Option<AResponse>> {
+        _html: &HtmlAllocator
+    ) -> Result<Option<AResponse>> {
         let target = (self.calculate_target)(request);
         let responder = map_redirect(self.code).expect("already checked earlier");
         Ok(Some(responder(target).into()))
