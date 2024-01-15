@@ -157,9 +157,10 @@ pub fn buttonrow<'a, const N: usize>(
     }
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum PopupBoxKind {
     Dialog,
-    Error,
+    Error(HttpResponseStatusCode),
     // Informational,
 }
 
@@ -170,7 +171,7 @@ pub fn popup_box<'a>(
     move |kind, title, body| {
         let box_style = match kind {
             PopupBoxKind::Dialog => "dialog_box",
-            PopupBoxKind::Error => "error_box",
+            PopupBoxKind::Error(_) => "error_box",
         };
         html.div([att("class", "dialog_box_container")],
                  [
@@ -195,7 +196,11 @@ pub fn show_popup_box_page(
 ) -> Result<Option<Response>>
 {
     let popup_box = popup_box(html);
-    Ok(Some(htmlresponse(html, HttpResponseStatusCode::OK200, |html| {
+    let status = match box_kind {
+        PopupBoxKind::Dialog => HttpResponseStatusCode::OK200,
+        PopupBoxKind::Error(status) => status
+    };
+    Ok(Some(htmlresponse(html, status, |html| {
         style.page(
             request,
             html,
@@ -679,7 +684,7 @@ impl Restricted for Arc<dyn Handler> {
                 LoginState::NotAllowed => {
                     show_popup_box_page(
                         request, html, &style,
-                        PopupBoxKind::Error,
+                        PopupBoxKind::Error(HttpResponseStatusCode::Forbidden403),
                         html.str("Permission denied")?,
                         html.str("You are not allowed to access this resource.")?,
                     ).map(|o| o.map(AResponse::from))
