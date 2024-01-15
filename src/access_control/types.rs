@@ -1,4 +1,6 @@
-use sqlite::{Statement, Bindable, BindableWithIndex};
+use std::fmt::Debug;
+
+use sqlite::{Statement, Bindable, BindableWithIndex, ReadableWithIndex};
 
 use crate::sqlite_util::bind_option_vec_u8;
 
@@ -10,9 +12,53 @@ pub trait FromStatement {
     where Self: Sized;
 }
 
+macro_rules! newtype_impl_sqlite {
+    { $t:tt } => {
+        impl ReadableWithIndex for $t {
+            fn read<T: sqlite::ColumnIndex>(
+                st: &Statement, i: T
+            ) -> sqlite::Result<Self> {
+                Ok($t(i64::read(st, i)?))
+            }
+        }
+
+        impl BindableWithIndex for $t {
+            fn bind<T: sqlite::ParameterIndex>(
+                self, st: &mut Statement, i: T
+            ) -> sqlite::Result<()> {
+                self.0.bind(st, i)
+            }
+        }
+
+        impl PartialEq for $t {
+            fn eq(&self, other: &Self) -> bool {
+                self.0.eq(&other.0)
+            }
+        }
+
+        impl Eq for $t {}
+
+        impl Debug for $t {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_fmt(format_args!("{}({})", stringify!($t), self.0))
+            }
+        }
+
+        impl Clone for $t {
+            fn clone(&self) -> Self {
+                Self(self.0)
+            }
+        }
+        impl Copy for $t {}
+    }
+}
+
+pub struct UserId(pub i64);
+newtype_impl_sqlite!(UserId);
+
 #[derive(Debug)]
 pub struct User {
-    pub id: Option<i64>,
+    pub id: Option<UserId>,
     pub username: String,
     pub email: Option<String>,
     pub name: String,
@@ -65,26 +111,12 @@ impl FromStatement for Count {
 }
 
 
-#[derive(Debug)]
-pub struct UserInGroup {
-    pub user_id: i64,
-    pub group_id: i64
-}
-
-impl FromStatement for UserInGroup {
-    fn from_statement<'s, 'slf>(
-        sth: &'s mut Statement<'slf>
-    ) -> Result<(Self, &'s mut Statement<'slf>), sqlite::Error> {
-        Ok((UserInGroup {
-            user_id: sth.read(0)?,
-            group_id: sth.read(1)?,
-        }, sth))
-    }
-}
+pub struct GroupId(pub i64);
+newtype_impl_sqlite!(GroupId);
 
 #[derive(Debug)]
 pub struct Group {
-    pub id: Option<i64>,
+    pub id: Option<GroupId>,
     pub groupname: String,
 }
 
@@ -96,6 +128,24 @@ impl FromStatement for Group {
         Ok((Group {
             id: Some(sth.read(0)?),
             groupname: sth.read(1)?,
+        }, sth))
+    }
+}
+
+
+#[derive(Debug)]
+pub struct UserInGroup {
+    pub user_id: UserId,
+    pub group_id: GroupId
+}
+
+impl FromStatement for UserInGroup {
+    fn from_statement<'s, 'slf>(
+        sth: &'s mut Statement<'slf>
+    ) -> Result<(Self, &'s mut Statement<'slf>), sqlite::Error> {
+        Ok((UserInGroup {
+            user_id: sth.read(0)?,
+            group_id: sth.read(1)?,
         }, sth))
     }
 }
@@ -144,7 +194,7 @@ pub struct SessionData {
     pub id: Option<i64>,
     pub sessionid: String,
     pub last_request_time: i64, // unixtime
-    pub user_id: Option<i64>, // in the future, session data can exist even if not logged in
+    pub user_id: Option<UserId>, // in the future, session data can exist even if not logged in
     pub ip: Option<Vec<u8>>, // the IP that logged in
 }
 

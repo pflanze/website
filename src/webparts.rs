@@ -525,7 +525,7 @@ pub fn login_handler(style: Arc<dyn LayoutInterface>) -> Arc<dyn Handler> {
                                     if prev_user_id != user_id {
                                         // Not sure if this could happen.
                                         bail!("logged in concurrently as another user? \
-                                               {prev_user_id} vs. {user_id}")
+                                               {prev_user_id:?} vs. {user_id:?}")
                                     }
                                     // Otherwise fine, do nothing except update timestamp
                                 } else {

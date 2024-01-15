@@ -1,10 +1,13 @@
 use std::{path::PathBuf, pin::Pin, sync::atomic::AtomicBool};
 
 use anyhow::{bail, Result};
-use sqlite::{Statement, Connection, State, Bindable};
+use sqlite::{Statement, Connection, State, Bindable, BindableWithIndex};
 
 use crate::{warn_thread, defn_with_statement, get_statement, try_sqlite};
-use super::{transaction::Transaction, types::{User, Group, Count, SessionData}, util::{get_unique_by, UniqueError}, sqliteposerror::SQLitePosError};
+use super::{transaction::Transaction,
+            types::{User, Group, Count, SessionData, UserId},
+            util::{get_unique_by, UniqueError},
+            sqliteposerror::SQLitePosError};
 
 pub static DO_WARN_THREAD: AtomicBool = AtomicBool::new(false);
 
@@ -88,7 +91,7 @@ impl Db {
     pub fn with_connection<'s, F, R, E>(&'s mut self, f: F) -> Result<R, E>
     where
         F: FnOnce(&'s Connection, &'s mut Statements) -> Result<R, E>,
-        E: From<crate::access_control::sqliteposerror::SQLitePosError>
+        E: From<SQLitePosError>
     {
         {
             let oc = &mut self.connection;
@@ -194,19 +197,19 @@ defn_with_statement!(with_select_groupid_from_userid_groupname,
                       where UserInGroup.user_id = ? and \"Group\".groupname = ?");
 impl<'t> Transaction<'t> {
     pub fn userid_has_groupname(
-        &mut self, user_id: i64, groupname: &str
-    ) -> Result<bool>
+        &mut self, user_id: UserId, groupname: &str
+    ) -> Result<bool, SQLitePosError>
     {
         self.with_select_groupid_from_userid_groupname(|sth| {
-            sth.reset()?;
-            let arguments = [&format!("{}", user_id), groupname];
-            sth.bind(arguments.as_ref())?;
-            match sth.next()? {
+            try_sqlite!(sth.reset());
+            try_sqlite!(user_id.bind(sth, 1));
+            try_sqlite!(groupname.bind(sth, 2));
+            match try_sqlite!(sth.next()) {
                 State::Row => {
-                    match sth.next()? {
-                        State::Row => bail!(
+                    match try_sqlite!(sth.next()) {
+                        State::Row => panic!( // XX better Err 
                             "userid_has_groupname: more than one result \
-                             for arguments {arguments:?}"),
+                             for arguments {user_id:?}, {groupname:?}"),
                         State::Done => Ok(true),
                     }
                  }
@@ -290,7 +293,7 @@ impl<'t> Transaction<'t> {
         let group_id = group.id.expect("group has id");
         self.with_insert_userid_groupid(|sth| {
             sth.reset()?;
-            let arguments = [ user_id, group_id ];
+            let arguments = [ user_id.0, group_id.0 ];
             sth.bind(arguments.as_ref())?;
             match sth.next()? {
                 State::Done => Ok(()),
@@ -314,7 +317,7 @@ impl<'t> Transaction<'t> {
         let group_id = group.id.expect("group has id");
         self.with_delete_userid_groupid(|sth| {
             sth.reset()?;
-            let arguments = [ user_id, group_id ];
+            let arguments = [ user_id.0, group_id.0 ];
             sth.bind(arguments.as_ref())?;
             match sth.next()? {
                 State::Done => Ok(()),
@@ -340,11 +343,12 @@ impl<'t> Transaction<'t> {
             let count : Count =
                 get_unique_by("select_count_from_useringroup",
                               sth,
-                              [ user_id, group_id ].as_ref())?.expect("always get the count");
+                              [ user_id.0, group_id.0 ].as_ref())?
+                .expect("always get the count");
             match count.0 {
                 0 => Ok(false),
                 1 => Ok(true),
-                _ => bail!("buggy db, has more than 1 entry for {user_id}/{group_id}")
+                _ => bail!("buggy db, has more than 1 entry for {user_id:?}/{group_id:?}")
             }
         })
     }
