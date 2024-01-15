@@ -49,3 +49,10 @@ pub fn sleep_until(target: Instant) {
     }
 }
 
+pub fn now_unixtime() -> i64 {
+    let now = SystemTime::now();
+    let now_unixtime: u64 = now.duration_since(SystemTime::UNIX_EPOCH)
+        .expect("no overflows, we are after epoch").as_secs();
+    now_unixtime as i64
+}
+

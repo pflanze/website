@@ -24,10 +24,13 @@ use crate::{arequest::ARequest,
             apachelog::{Logs, log_combined},
             hostrouter::HostsRouter,
             http_request_method::{HttpRequestMethodGrouped, HttpRequestMethodSimple},
-            access_control::{check_username_password, CheckAccessErrorKind, transaction, db::access_control_transaction, types::SessionData},
+            access_control::{check_username_password, CheckAccessErrorKind,
+                             db::access_control_transaction, types::{SessionData, GroupId}},
             in_threadpool::in_threadpool,
             aresponse::{AResponse, ToAResponse},
-            time_util, ipaddr_util::IpAddrOctets};
+            time_util::{self, now_unixtime},
+            ipaddr_util::IpAddrOctets,
+            auri::{AUriLocal, QueryString}};
 use crate::{try_result, warn, nodt, time_guard};
 
 // ------------------------------------------------------------------
@@ -154,13 +157,24 @@ pub fn buttonrow<'a, const N: usize>(
     }
 }
 
-pub fn dialog_box<'a>(html: &'a HtmlAllocator)
-                      -> impl Fn(AId<Node>, AId<Node>) -> Result<AId<Node>> + 'a
+pub enum PopupBoxKind {
+    Dialog,
+    Error,
+    // Informational,
+}
+
+pub fn popup_box<'a>(
+    html: &'a HtmlAllocator
+) -> impl Fn(PopupBoxKind, AId<Node>, AId<Node>) -> Result<AId<Node>> + 'a
 {
-    move |title, body| {
+    move |kind, title, body| {
+        let box_style = match kind {
+            PopupBoxKind::Dialog => "dialog_box",
+            PopupBoxKind::Error => "error_box",
+        };
         html.div([att("class", "dialog_box_container")],
                  [
-                     html.div([att("class", "dialog_box")],
+                     html.div([att("class", box_style)],
                               [
                                   html.div([att("class", "dialog_box_title")],
                                            [title])?,
@@ -169,6 +183,34 @@ pub fn dialog_box<'a>(html: &'a HtmlAllocator)
                               ])?
                  ])
     }
+}
+
+pub fn show_popup_box_page(
+    request: &ARequest,
+    html: &HtmlAllocator,
+    style: &Arc<dyn LayoutInterface>,
+    box_kind: PopupBoxKind,
+    box_title: AId<Node>,
+    box_body: AId<Node>,
+) -> Result<Option<Response>>
+{
+    let popup_box = popup_box(html);
+    Ok(Some(htmlresponse(html, HttpResponseStatusCode::OK200, |html| {
+        style.page(
+            request,
+            html,
+            None,
+            None,
+            None,
+            None,
+            None,
+            popup_box(
+                box_kind,
+                box_title,
+                box_body)?,
+            None,
+            None)
+        })?))
 }
 
 // ------------------------------------------------------------------
@@ -404,6 +446,52 @@ pub fn blog_handler(blog: Arc<Blog>, style: Arc<dyn LayoutInterface>) -> Arc<dyn
         }))
 }
 
+fn show_login_form(
+    request: &ARequest,
+    html: &HtmlAllocator,
+    style: &Arc<dyn LayoutInterface>,
+    error: Option<String>,
+    username: Option<String>,
+    return_path: Option<String>,
+) -> Result<Option<Response>>
+{
+    let pair = pair(html);
+    let buttonrow = buttonrow(html);
+    let form = html.form(
+        [att("action", request.path_str()), att("method", "POST")],
+        [
+            if let Some(error) = error {
+                html.div([att("class", "form_error")],
+                         [html.string(error)?])?
+            } else {
+                html.empty_node()?
+            },
+            pair(html.str("Username:")?,
+                 html.input([att("name", "username"), att("type", "text"),
+                             opt_att("value", username)],
+                            [])?)?,
+            pair(html.str("Password:")?,
+                 html.input([att("name", "password"), att("type", "password")],
+                            [])?)?,
+            if let Some(return_path) = return_path {
+                html.input([att("name", "return_path"), att("type", "hidden"),
+                            att("value", return_path)],
+                           [])?
+            } else {
+                html.empty_node()?
+            },
+            buttonrow([
+                html.button([att("type", "submit")],
+                            [html.str("OK")?])?
+            ])?,
+        ])?;
+
+    show_popup_box_page(request, html, style,
+                        PopupBoxKind::Dialog,
+                        html.string(format!("Login for {}",
+                                            request.host_or_listen_addr()))?,
+                        form)
+}
 
 pub fn login_handler(style: Arc<dyn LayoutInterface>) -> Arc<dyn Handler> {
     Arc::new(FnHandler(
@@ -414,61 +502,12 @@ pub fn login_handler(style: Arc<dyn LayoutInterface>) -> Arc<dyn Handler> {
         html: &HtmlAllocator
             | -> Result<Option<AResponse>>
         {
-            let show_form =
-                |
+            let show_form = |
             error: Option<String>,
             username: Option<String>,
             return_path: Option<String>,
-                | -> Result<Option<Response>>
-            {
-                let pair = pair(html);
-                let buttonrow = buttonrow(html);
-                let dialog_box = dialog_box(html);
-                let form = html.form(
-                    [att("action", request.path_str()), att("method", "POST")],
-                    [
-                        if let Some(error) = error {
-                            html.div([att("class", "form_error")],
-                                     [html.string(error)?])?
-                        } else {
-                            html.empty_node()?
-                        },
-                        pair(html.str("Username:")?,
-                             html.input([att("name", "username"), att("type", "text"),
-                                         opt_att("value", username)],
-                                        [])?)?,
-                        pair(html.str("Password:")?,
-                             html.input([att("name", "password"), att("type", "password")],
-                                        [])?)?,
-                        if let Some(return_path) = return_path {
-                            html.input([att("name", "return_path"), att("type", "hidden"),
-                                        att("value", return_path)],
-                                       [])?
-                        } else {
-                            html.empty_node()?
-                        },
-                        buttonrow([
-                            html.button([att("type", "submit")],
-                                        [html.str("OK")?])?
-                        ])?,
-                    ])?;
-
-                Ok(Some(htmlresponse(html, HttpResponseStatusCode::OK200, |html| {
-                    style.page(
-                        request,
-                        html,
-                        None,
-                        None,
-                        None,
-                        None,
-                        None,
-                        dialog_box(
-                            html.string(format!("Login for {}",
-                                                request.host_or_listen_addr()))?,
-                            form)?,
-                        None,
-                        None)
-                    })?))
+            | {
+                show_login_form(request, html, &style, error, username, return_path)
             };
 
             let immediate = |response: Result<Option<Response>>| -> Result<Option<AResponse>>
@@ -505,10 +544,7 @@ pub fn login_handler(style: Arc<dyn LayoutInterface>) -> Arc<dyn Handler> {
                         // Mark session as logged in
                         let user_id = user.id.expect("coming from db has an id");
                         let session_id = request.session_id();
-                        let now = SystemTime::now();
-                        let _now_unixtime: u64 = now.duration_since(SystemTime::UNIX_EPOCH)
-                            .expect("no overflows, we are after epoch").as_secs();
-                        let now_unixtime = _now_unixtime as i64;
+                        let now_unixtime = now_unixtime();
                         let ip = request.client_ip().octets();
                         access_control_transaction(|trans| -> Result<()> {
                             // Check if the session is already active
@@ -583,4 +619,73 @@ pub fn login_handler(style: Arc<dyn LayoutInterface>) -> Arc<dyn Handler> {
                 immediate(show_form(None, None, return_path))
             }
         }))
+}
+
+
+/// Tie via GroupId: requires that Ids are never re-used in the
+/// database! XX double-check sqlite.
+pub trait Restricted {
+    fn restricted_to_group(
+        self,
+        group: GroupId,
+        style: Arc<dyn LayoutInterface>,
+    ) -> Self;
+}
+
+enum LoginState {
+    NeedLogin,
+    NotAllowed,
+    Allowed
+}
+
+impl Restricted for Arc<dyn Handler> {
+    fn restricted_to_group(
+        self,
+        group_id: GroupId,
+        style: Arc<dyn LayoutInterface>,
+    ) -> Self {
+        Arc::new(FnHandler(move |request, method, path, html| -> Result<Option<AResponse>> {
+            let session = request.session();
+            // if ! session.client_has_sid() {
+            //     todo!()
+            // }
+            let state = access_control_transaction(move |trans| -> Result<_> {
+                if let Some(mut sessiondata) = trans.get_sessiondata_by_sessionid(session.id())?
+                {
+                    if let Some(user_id) = sessiondata.user_id {
+                        if trans.user_in_group(user_id, group_id)? {
+                            // Update timestamp; OK to only update it here?
+                            sessiondata.last_request_time = now_unixtime();
+                            trans.update_sessiondata(&sessiondata)?;
+                            Ok(LoginState::Allowed)
+                        } else {
+                            Ok(LoginState::NotAllowed)
+                        }
+                    } else {
+                        Ok(LoginState::NeedLogin)
+                    }
+                } else {
+                    Ok(LoginState::NeedLogin)
+                }
+            })?;
+            match state {
+                LoginState::NeedLogin => {
+                    let target = AUriLocal::from_str(
+                        "/login",
+                        Some(QueryString::new(
+                            [("return_path", request.path_str())])));
+                    Ok(Some(Response::redirect_302(String::from(target)).into()))
+                }
+                LoginState::NotAllowed => {
+                    show_popup_box_page(
+                        request, html, &style,
+                        PopupBoxKind::Error,
+                        html.str("Permission denied")?,
+                        html.str("You are not allowed to access this resource.")?,
+                    ).map(|o| o.map(AResponse::from))
+                }
+                LoginState::Allowed => self.call(request, method, path, html)
+            }
+        }))
+    }
 }

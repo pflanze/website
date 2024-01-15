@@ -234,6 +234,14 @@ hr {
     padding: 2px;
 }
 
+.error_box {
+    background: #ee8181;
+    border: 1px;
+    border-block: black;
+    margin: 50px;
+    padding: 2px;
+}
+
 .dialog_box_title {
     background: black;
     color: white;

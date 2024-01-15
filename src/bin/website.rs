@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::thread;
 use scoped_thread_pool;
+use website::access_control::db::access_control_transaction;
 use website::access_control::statements_and_methods::DO_WARN_THREAD;
 use website::apachelog::Logs;
 use website::arequest::ARequest;
@@ -20,7 +21,7 @@ use rouille::Server;
 use website::nav::{Nav, NavEntry, SubEntries};
 use website::router::MultiRouter;
 use website::util::{log_basedir, getenv_or, getenv};
-use website::webparts::{markdownpage_handler, blog_handler, server_handler, login_handler};
+use website::webparts::{markdownpage_handler, blog_handler, server_handler, login_handler, Restricted};
 use website::website_layout::WebsiteLayout;
 use website::handler::Handler;
 use website::{website_benchmark, warn};
@@ -118,6 +119,9 @@ fn main() -> Result<()> {
                                        Some("headerpic"))?])?))
             }}),
     });
+    let preview_groupid = access_control_transaction(|trans| -> Result<_> {
+        Ok(trans.xget_group_by_groupname("preview")?.id.expect("present from db"))
+    })?;
     let mut router : MultiRouter<Arc<dyn Handler>> = MultiRouter::new();
     router
         .add("/bench", Arc::new(ExactFnHandler(website_benchmark::benchmark)))
@@ -131,7 +135,8 @@ fn main() -> Result<()> {
             style.clone()))
         .add("/preview", blog_handler(
             Blog::open(in_datadir("preview"), &ALLOCPOOL, footnotestyle)?,
-            style.clone()))
+            style.clone())
+             .restricted_to_group(preview_groupid, style.clone()))
         .add("/login", login_handler(style.clone()))
         ;
     if let Some(wwwdir) = wwwdir {

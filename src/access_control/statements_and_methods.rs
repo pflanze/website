@@ -5,8 +5,8 @@ use sqlite::{Statement, Connection, State, Bindable, BindableWithIndex};
 
 use crate::{warn_thread, defn_with_statement, get_statement, try_sqlite};
 use super::{transaction::Transaction,
-            types::{User, Group, Count, SessionData, UserId},
-            util::{get_unique_by, UniqueError},
+            types::{User, Group, Count, SessionData, UserId, GroupId},
+            util::{get_unique_by, UniqueError, RequiredUniqueError, required_unique},
             sqliteposerror::SQLitePosError};
 
 pub static DO_WARN_THREAD: AtomicBool = AtomicBool::new(false);
@@ -154,6 +154,13 @@ impl<'t> Transaction<'t> {
         self.with_select_group_by_groupname(|sth| {
             get_unique_by("select_group_by_groupname", sth, [groupname].as_ref())
         })
+    }
+    pub fn xget_group_by_groupname(
+        &mut self, groupname: &str
+    ) -> Result<Group, RequiredUniqueError>
+    {
+        required_unique("Group", || format!("{groupname:?}"),
+                        self.get_group_by_groupname(groupname))
     }
 }
 
@@ -332,13 +339,8 @@ defn_with_statement!(with_select_count_from_useringroup,
                      "select count(*) from UserInGroup \
                       where user_id = ? and group_id = ?");
 impl<'t> Transaction<'t> {
-    /// panics unless user and group carry ids. Only those are
-    /// currently being used (only using objects for type safety;
-    /// should we have UserId and GroupId instead?).
-    pub fn user_in_group(&mut self, user: &User, group: &Group) -> Result<bool>
+    pub fn user_in_group(&mut self, user_id: UserId, group_id: GroupId) -> Result<bool>
     {
-        let user_id = user.id.expect("user has id");
-        let group_id = group.id.expect("group has id");
         self.with_select_count_from_useringroup(|sth| {
             let count : Count =
                 get_unique_by("select_count_from_useringroup",

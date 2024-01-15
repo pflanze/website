@@ -155,7 +155,13 @@ fn main() -> Result<()> {
                     || anyhow!("There's no user with username {username:?}"))?;
                 let group = trans.get_group_by_groupname(groupname)?.ok_or_else(
                     || anyhow!("There's no group with groupname {groupname:?}"))?;
-                Ok(if trans.user_in_group(&user, &group)? { "yes" } else { "no" })
+                Ok(
+                    if trans.user_in_group(user.id.unwrap(),
+                                           group.id.unwrap())? {
+                        "yes"
+                    } else {
+                        "no"
+                    })
             })?;
             println!("{r}");
             Ok(())

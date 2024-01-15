@@ -95,6 +95,7 @@ impl<'r, 's> ARequest<'r, 's> {
     pub fn headers(&self) -> HeadersIter { self.request.headers() }
 
     pub fn request(&self) -> &Request { self.request }
+    pub fn session(&self) -> &Session { &self.session }
     pub fn session_id(&self) -> &str { self.session.id() }
 
     pub fn writeln(&self, outp: &mut impl Write) -> Result<()> {

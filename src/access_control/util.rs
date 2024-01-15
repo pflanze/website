@@ -37,3 +37,24 @@ where R: FromStatement,
         State::Done => Ok(None),
     }
 }
+
+
+def_boxed_thiserror!(RequiredUniqueError, pub enum RequiredUniqueErrorKind {
+    #[error("retrieving the entry")]
+    UniqueError(#[from] UniqueError),
+    #[error("{item_type_name} {arguments} not found")]
+    MissingError { item_type_name: &'static str, arguments: String },
+});
+pub fn required_unique<R>(
+    item_type_name: &'static str,
+    arguments: impl FnOnce() -> String,
+    r: Result<Option<R>, UniqueError>
+) -> Result<R, RequiredUniqueError>
+{
+    Ok(r?.ok_or_else(
+        || RequiredUniqueErrorKind::MissingError {
+            item_type_name,
+            arguments: arguments()
+        })?)
+}
+
