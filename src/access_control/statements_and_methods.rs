@@ -4,7 +4,7 @@ use anyhow::{bail, Result};
 use blake3::Hasher;
 use sqlite::{Statement, Connection, State, Bindable, BindableWithIndex};
 
-use crate::{warn_thread, defn_with_statement, get_statement, try_sqlite, time};
+use crate::{warn_thread, defn_with_statement, get_statement, try_sqlite, notime};
 use super::{transaction::Transaction,
             types::{User, Group, Count, SessionData, UserId, GroupId},
             util::{get_unique_by, UniqueError, RequiredUniqueError, required_unique},
@@ -376,7 +376,7 @@ impl<'t> Transaction<'t> {
         &mut self, sessionid: &str, hasher: Hasher
     ) -> Result<Option<SessionData>, UniqueError>
     {
-        let h = time!{
+        let h = notime!{
             "hashing";
             let mut hasher = hasher;
             hasher.update(sessionid.as_bytes());
