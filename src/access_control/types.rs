@@ -1,5 +1,6 @@
 use std::fmt::Debug;
 
+use blake3::Hasher;
 use sqlite::{Statement, Bindable, BindableWithIndex, ReadableWithIndex};
 
 use crate::sqlite_util::bind_option_vec_u8;
@@ -189,13 +190,39 @@ impl Bindable for &FailedLoginAttempt {
     }
 }
 
+/// The sessionid is hashed to avoid a timing side channel on database
+/// lookups of the user-provided sessionids.
 #[derive(Debug)]
 pub struct SessionData {
     pub id: Option<i64>,
-    pub sessionid: String,
+    sessionid_hash: Vec<u8>,
     pub last_request_time: i64, // unixtime
     pub user_id: Option<UserId>, // in the future, session data can exist even if not logged in
     pub ip: Option<Vec<u8>>, // the IP that logged in
+}
+
+impl SessionData {
+    /// For `hasher`, pass the clone of a `blake3::Hasher` that was
+    /// already `update`d with a secret part.
+    pub fn new(
+        id: Option<i64>,
+        sessionid: &str,
+        last_request_time: i64,
+        user_id: Option<UserId>,
+        ip: Option<Vec<u8>>,
+        hasher: Hasher
+    ) -> Self {
+        let mut hasher = hasher;
+        hasher.update(sessionid.as_bytes());
+        let h = hasher.finalize();
+        SessionData {
+            id,
+            sessionid_hash: h.as_bytes().to_vec(),
+            last_request_time,
+            user_id,
+            ip
+        }
+    }
 }
 
 impl FromStatement for SessionData {
@@ -204,7 +231,7 @@ impl FromStatement for SessionData {
     ) -> Result<(Self, &'s mut Statement<'slf>), sqlite::Error> {
         Ok((Self {
             id: Some(sth.read(0)?),
-            sessionid: sth.read(1)?,
+            sessionid_hash: sth.read(1)?,
             last_request_time: sth.read(2)?,
             user_id: sth.read(3)?,
             ip: sth.read(4)?,
@@ -216,7 +243,7 @@ impl Bindable for &SessionData {
         // HACK: assume we want to bind it from index 0, and id should
         // come last. Make our own trait?
         let offset = |n: usize| -> usize { n + 1 };
-        self.sessionid.bind(st, offset(0))?;
+        self.sessionid_hash.bind(st, offset(0))?;
         self.last_request_time.bind(st, offset(1))?;
         self.user_id.bind(st, offset(2))?;
         bind_option_vec_u8(&self.ip, st, offset(3))?;

@@ -344,6 +344,13 @@ pub fn getenv(name: &str) -> Result<Option<String>> {
     }
 }
 
+/// Like getenv but reports an error mentioning the variable name if
+/// it isn't set.
+pub fn xgetenv(name: &str) -> Result<String> {
+    getenv(name)?.ok_or_else(
+        || anyhow!("missing env var {name:?}"))
+}
+
 
 /// Takes a place (variable or field) holding an `Option<T>` and an
 /// expression that returns `T`; returns a `&T` to the value held by

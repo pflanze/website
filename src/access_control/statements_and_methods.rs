@@ -1,6 +1,7 @@
 use std::{path::PathBuf, pin::Pin, sync::atomic::AtomicBool};
 
 use anyhow::{bail, Result};
+use blake3::Hasher;
 use sqlite::{Statement, Connection, State, Bindable, BindableWithIndex};
 
 use crate::{warn_thread, defn_with_statement, get_statement, try_sqlite};
@@ -358,23 +359,34 @@ impl<'t> Transaction<'t> {
 
 defn_with_statement!(with_select_sessiondata_by_sessionid,
                      st_select_sessiondata_by_sessionid,
-                     "select id, sessionid, last_request_time, user_id, ip \
+                     "select id, sessionid_hash, last_request_time, user_id, ip \
                       from SessionData \
-                      where sessionid = ?");
+                      where sessionid_hash = ?");
 impl<'t> Transaction<'t> {
-    pub fn get_sessiondata_by_sessionid(
-        &mut self, sessionid: &str
+    pub fn get_sessiondata_by_sessionid_hash(
+        &mut self, sessionid_hash: &[u8]
     ) -> Result<Option<SessionData>, UniqueError>
     {
         self.with_select_sessiondata_by_sessionid(|sth| {
-            get_unique_by("select_sessiondata_by_sessionid", sth, [sessionid].as_ref())
+            get_unique_by("select_sessiondata_by_sessionid", sth, [sessionid_hash].as_ref())
         })
+    }
+
+    pub fn get_sessiondata_by_sessionid(
+        &mut self, sessionid: &str, hasher: Hasher
+    ) -> Result<Option<SessionData>, UniqueError>
+    {
+        let mut hasher = hasher;
+        hasher.update(sessionid.as_bytes());
+        let h = hasher.finalize();
+        self.get_sessiondata_by_sessionid_hash(h.as_bytes())
     }
 }
 
 defn_with_statement!(with_update_sessiondata,
                      st_update_sessiondata,
-                     "update \"SessionData\" set (sessionid, last_request_time, user_id, ip) \
+                     "update \"SessionData\" \
+                      set (sessionid_hash, last_request_time, user_id, ip) \
                       = (?, ?, ?, ?) \
                       where id = ?");
 impl<'t> Transaction<'t> {
@@ -396,7 +408,8 @@ impl<'t> Transaction<'t> {
 
 defn_with_statement!(with_insert_into_sessiondata,
                      st_insert_into_sessiondata,
-                     "insert into \"SessionData\" (sessionid, last_request_time, user_id, ip) \
+                     "insert into \"SessionData\" \
+                      (sessionid_hash, last_request_time, user_id, ip) \
                       values (?, ?, ?, ?)");
 impl<'t> Transaction<'t> {
     pub fn insert_sessiondata(

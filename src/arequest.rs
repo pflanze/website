@@ -1,13 +1,15 @@
 use std::{net::{SocketAddr, IpAddr}, io::Write, time::SystemTime};
 
 use anyhow::{Result, anyhow};
+use blake3::Hasher;
 use kstring::KString;
 use rouille::{Request, HeadersIter, session::Session};
 
 use crate::{ppath::PPath,
             http_request_method::HttpRequestMethod};
 
-pub struct ARequest<'r, 's> {
+/// todo: rename to AContext, it has more than request data now.
+pub struct ARequest<'r, 's, 'h> {
     // Fallback for host(): what this server listens on; ip:port or
     // domain:port or whatever is deemed suitable
     listen_addr: &'r str, // ref might be valid for longer but we don't guarantee it
@@ -17,13 +19,15 @@ pub struct ARequest<'r, 's> {
     now: SystemTime,
     method: HttpRequestMethod,
     request: &'r Request,
-    // Stuff the session in here, too? ARequest should be renamed to AContext?
     session: &'r Session<'s>,
+    /// A `blake3::Hasher` that has already been filled with some secret data.
+    sessionid_hasher: &'h Hasher,
 }
 
-impl<'r, 's> ARequest<'r, 's> {
+impl<'r, 's, 'h> ARequest<'r, 's, 'h> {
     pub fn new(
-        request: &'r Request, listen_addr: &'r str, session: &'r Session<'s>
+        request: &'r Request, listen_addr: &'r str, session: &'r Session<'s>,
+        sessionid_hasher: &'h Hasher,
     ) -> Result<Self> {
         let path_original = request.url(); // path only
         let path = PPath::from_str(&path_original);
@@ -39,6 +43,7 @@ impl<'r, 's> ARequest<'r, 's> {
             method,
             request,
             session,
+            sessionid_hasher,
         })
     }
 
@@ -103,5 +108,9 @@ impl<'r, 's> ARequest<'r, 's> {
                  self.client_addr(), self.method_str(), self.host(),
                  self.path(), self.headers())?;
         Ok(())
+    }
+
+    pub fn sessionid_hasher(&self) -> Hasher {
+        self.sessionid_hasher.clone()
     }
 }

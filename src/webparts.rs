@@ -4,6 +4,7 @@
 use std::{path::PathBuf, sync::{Arc, Mutex}, time::{SystemTime, Instant, Duration}, fmt::Debug};
 
 use anyhow::{Result, Context, anyhow, bail};
+use blake3::Hasher;
 use chrono::NaiveDate;
 use kstring::KString;
 use rand::{prelude::thread_rng, Rng};
@@ -42,6 +43,7 @@ pub fn server_handler<'t>(
     hostsrouter: Arc<HostsRouter>,
     allocatorpool: &'static AllocatorPool,
     threadpool: Arc<Pool>,
+    sessionid_hasher: Hasher,
 ) -> impl for<'r> Fn(&'r Request) -> Response {
     move |request: &Request| -> Response {
         time_guard!("server_handler"); // timings including infrastructure cost
@@ -105,7 +107,7 @@ pub fn server_handler<'t>(
                                 .into()))
                         })
                 };
-                match ARequest::new(request, &listen_addr, session) {
+                match ARequest::new(request, &listen_addr, session, &sessionid_hasher) {
                     Ok(request) => okhandler(request),
                     Err(e) => {
                         warn!("{e}");
@@ -498,7 +500,9 @@ fn show_login_form(
                         form)
 }
 
-pub fn login_handler(style: Arc<dyn LayoutInterface>) -> Arc<dyn Handler> {
+pub fn login_handler(
+    style: Arc<dyn LayoutInterface>
+) -> Arc<dyn Handler> {
     Arc::new(FnHandler(
         move |
         request: &ARequest,
@@ -555,7 +559,8 @@ pub fn login_handler(style: Arc<dyn LayoutInterface>) -> Arc<dyn Handler> {
                             // Check if the session is already active
                             // (possible if data was stored before logging in)
                             if let Some(mut sessiondata) =
-                                trans.get_sessiondata_by_sessionid(session_id)?
+                                trans.get_sessiondata_by_sessionid(
+                                    session_id, request.sessionid_hasher())?
                             {
                                 if let Some(prev_user_id) = sessiondata.user_id {
                                     // Can happen if using back button
@@ -583,13 +588,14 @@ pub fn login_handler(style: Arc<dyn LayoutInterface>) -> Arc<dyn Handler> {
                                 trans.update_sessiondata(&sessiondata)?;
                             } else {
                                 // create it
-                                let sessiondata = SessionData {
-                                    id: None,
-                                    sessionid: session_id.into(),
-                                    last_request_time: now_unixtime,
-                                    user_id: Some(user_id),
-                                    ip: Some(ip),
-                                };
+                                let sessiondata = SessionData::new(
+                                    None,
+                                    session_id,
+                                    now_unixtime,
+                                    Some(user_id),
+                                    Some(ip),
+                                    request.sessionid_hasher()
+                                );
                                 trans.insert_sessiondata(&sessiondata)?;
                             }
                             Ok(())
@@ -655,7 +661,8 @@ impl Restricted for Arc<dyn Handler> {
             //     todo!()
             // }
             let state = access_control_transaction(move |trans| -> Result<_> {
-                if let Some(mut sessiondata) = trans.get_sessiondata_by_sessionid(session.id())?
+                if let Some(mut sessiondata) = trans.get_sessiondata_by_sessionid(
+                    session.id(), request.sessionid_hasher())?
                 {
                     if let Some(user_id) = sessiondata.user_id {
                         if trans.user_in_group(user_id, group_id)? {

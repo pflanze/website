@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use std::thread;
+use blake3::Hasher;
 use scoped_thread_pool;
 use website::access_control::db::access_control_transaction;
 use website::access_control::statements_and_methods::DO_WARN_THREAD;
@@ -20,7 +21,7 @@ use website::markdown::StylingInterface;
 use rouille::Server;
 use website::nav::{Nav, NavEntry, SubEntries};
 use website::router::MultiRouter;
-use website::util::{log_basedir, getenv_or, getenv};
+use website::util::{log_basedir, getenv_or, getenv, xgetenv};
 use website::webparts::{markdownpage_handler, blog_handler, server_handler, login_handler, Restricted};
 use website::website_layout::WebsiteLayout;
 use website::handler::Handler;
@@ -73,6 +74,13 @@ struct Tlskeys {
 
 fn main() -> Result<()> {
     DO_WARN_THREAD.store(true, std::sync::atomic::Ordering::SeqCst);
+
+    let sessionid_hasher = {
+        let sessionid_hasher_secret = xgetenv("SESSIONID_HASHER_SECRET")?;
+        let mut h = Hasher::new();
+        h.update(sessionid_hasher_secret.as_bytes());
+        h
+    };
 
     let in_datadir = Arc::new({
         let base = getenv_or("DATADIR", Some("data"))?;
@@ -249,6 +257,7 @@ fn main() -> Result<()> {
         let addr = std::env::var("LISTEN_HTTP").unwrap_or("127.0.0.1:3000".into());
         let hostsrouter = new_hostsrouter(false)?;
         let workerthreadpool = workerthreadpool.clone();
+        let sessionid_hasher = sessionid_hasher.clone();
         move || {
             run!(Server::new(
                 addr.clone(),
@@ -256,7 +265,8 @@ fn main() -> Result<()> {
                     addr,
                     hostsrouter,
                     &ALLOCPOOL,
-                    workerthreadpool
+                    workerthreadpool,
+                    sessionid_hasher,
                 )));
         }
     })?;
@@ -265,6 +275,7 @@ fn main() -> Result<()> {
         let addr = std::env::var("LISTEN_HTTPS").unwrap_or("127.0.0.1:3001".into());
         let hostsrouter = new_hostsrouter(true)?;
         let workerthreadpool = workerthreadpool.clone();
+        let sessionid_hasher = sessionid_hasher.clone();
         move || {
             if let Some(tlskeys) = tlskeys {
                 run!(Server::new_ssl(
@@ -273,7 +284,8 @@ fn main() -> Result<()> {
                         addr,
                         hostsrouter,
                         &ALLOCPOOL,
-                        workerthreadpool
+                        workerthreadpool,
+                        sessionid_hasher,
                     ),
                     tlskeys.crt,
                     tlskeys.key));
@@ -286,7 +298,8 @@ fn main() -> Result<()> {
                             addr,
                             hostsrouter,
                             &ALLOCPOOL,
-                            workerthreadpool
+                            workerthreadpool,
+                            sessionid_hasher,
                         )));
                 } else {
                     warn!("don't have keys, thus not running the HTTPS service!");

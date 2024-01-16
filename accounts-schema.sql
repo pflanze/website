@@ -50,7 +50,7 @@ CREATE INDEX "LoginAttempt_username" ON "FailedLoginAttempt" (
 );
 CREATE TABLE IF NOT EXISTS "SessionData" (
 	"id"	INTEGER NOT NULL,
-	"sessionid"	TEXT NOT NULL UNIQUE,
+	"sessionid_hash"	BLOB NOT NULL UNIQUE,
 	"last_request_time"	INTEGER NOT NULL,
 	"user_id"	INTEGER,
 	"ip"	BLOB,
@@ -61,7 +61,7 @@ CREATE INDEX "SessionData_last_request_time" ON "SessionData" (
 	"last_request_time"
 );
 CREATE INDEX "SessionData_sessionid" ON "SessionData" (
-	"sessionid"
+	"sessionid_hash"
 );
 CREATE INDEX "SessionData_user_id" ON "SessionData" (
 	"user_id"
