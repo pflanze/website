@@ -32,7 +32,7 @@ use crate::{arequest::ARequest,
             time_util::{self, now_unixtime},
             ipaddr_util::IpAddrOctets,
             auri::{AUriLocal, QueryString},
-            time};
+            notime};
 use crate::{try_result, warn, nodt, time_guard};
 
 // ------------------------------------------------------------------
@@ -662,11 +662,10 @@ impl Restricted for Arc<dyn Handler> {
             //     todo!()
             // }
             let state = access_control_transaction(move |trans| -> Result<_> {
-                let hasher = request.sessionid_hasher();
-                if let Some(mut sessiondata) = time!{
+                if let Some(mut sessiondata) = notime!{
                     "get_sessiondata_by_sessionid";
                     trans.get_sessiondata_by_sessionid(
-                        session.id(), hasher)}?
+                        session.id(), request.sessionid_hasher())}?
                 {
                     if let Some(user_id) = sessiondata.user_id {
                         if trans.user_in_group(user_id, group_id)? {
