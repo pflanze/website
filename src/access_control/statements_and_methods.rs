@@ -89,6 +89,7 @@ impl Db {
         }
     }
 
+    #[inline]
     pub fn with_connection<'s, F, R, E>(&'s mut self, f: F) -> Result<R, E>
     where
         F: FnOnce(&'s Connection, &'s mut Statements) -> Result<R, E>,
