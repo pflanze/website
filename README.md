@@ -61,3 +61,9 @@ Then for each user:
 There's currently no rate limiting, so use good passwords (it does
 slow down each login attempt to take a second, though; hence the
 minimum is about 56 bits of entropy).
+
+## License
+
+The `*.asc` files (public key) are public domain, everything else is ©
+Christian Jaeger <ch@christianjaeger.ch> and licensed under MIT OR
+Apache-2.0 at your choice.
