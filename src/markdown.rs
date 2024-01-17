@@ -143,29 +143,6 @@ pub struct MarkdownHeading {
 }
 
 impl MarkdownHeading {
-    // fn last_subheading(&self) -> Option<&MarkdownHeading> {
-    //     if let Some(h) = self.subheadings.last() {
-    //         if let Some(sh) = h.last_subheading() {
-    //             Some(sh)
-    //         } else {
-    //             Some(h)
-    //         }
-    //     } else {
-    //         None
-    //     }
-    // }
-    // fn last_subheading_mut(&mut self) -> Option<&mut MarkdownHeading> {
-    //     if let Some(h) = self.subheadings.last_mut() {
-    //         let h : *mut _ = h; // Work around serious rustc deficiency?
-    //         if let Some(sh) = unsafe{&mut *h}.last_subheading_mut() {
-    //             Some(sh)
-    //         } else {
-    //             Some(unsafe{&mut *h})
-    //         }
-    //     } else {
-    //         None
-    //     }
-    // }
     fn append_heading(&mut self, our_level: u32, h: MarkdownHeading) {
         if h.level as u32 == our_level {
             self.subheadings.push(h)
@@ -273,29 +250,6 @@ impl MarkdownMeta {
         }
     }
 
-    // fn last_heading(&self) -> Option<&MarkdownHeading> {
-    //     if let Some(h) = self.headings.last() {
-    //         if let Some(sh) = h.last_subheading() {
-    //             Some(sh)
-    //         } else {
-    //             Some(h)
-    //         }
-    //     } else {
-    //         None
-    //     }
-    // }
-    // fn last_heading_mut(&mut self) -> Option<&mut MarkdownHeading> {
-    //     if let Some(h) = self.headings.last_mut() {
-    //         let h : *mut _ = h; // Work around serious rustc deficiency?
-    //         if let Some(sh) = unsafe{&mut *h}.last_subheading_mut() {
-    //             Some(sh)
-    //         } else {
-    //             Some(unsafe{&mut *h})
-    //         }
-    //     } else {
-    //         None
-    //     }
-    // }
     fn push_heading(&mut self, h: MarkdownHeading) {
         match h.level {
             HeadingLevel::H1 => self.headings.push(h),
