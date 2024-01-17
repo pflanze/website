@@ -1,4 +1,3 @@
-CREATE TABLE sqlite_sequence(name,seq);
 CREATE TABLE IF NOT EXISTS "Group" (
 	"id"	INTEGER NOT NULL,
 	"groupname"	TEXT NOT NULL UNIQUE,
