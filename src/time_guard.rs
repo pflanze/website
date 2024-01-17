@@ -48,3 +48,8 @@ macro_rules! time_guard {
     }
 }
 
+#[macro_export]
+macro_rules! notime_guard {
+    ($namestr:expr) => {}
+}
+
