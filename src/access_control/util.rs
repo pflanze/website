@@ -43,7 +43,7 @@ where R: FromStatement,
 def_boxed_thiserror!(RequiredUniqueError, pub enum RequiredUniqueErrorKind {
     #[error("retrieving the entry")]
     UniqueError(#[from] UniqueError),
-    #[error("{item_type_name} {arguments} not found")]
+    #[error("{item_type_name} {arguments} not found in the database")]
     MissingError { item_type_name: &'static str, arguments: String },
 });
 pub fn required_unique<R>(
