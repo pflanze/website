@@ -11,7 +11,7 @@ use rouille::Response;
 use rouille::router;
 use rouille::start_server;
 use website::webutils::errorpage_from_error;
-use website::webutils::{htmlresponse, errorpage_from_status, error_boundary, errors_to_response};
+use website::webutils::{htmlresponse, errorpage_from_status, error_boundary};
 
 struct State {
     counter: i64,
