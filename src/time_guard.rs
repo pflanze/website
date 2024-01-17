@@ -40,7 +40,7 @@ impl<S: Debug> Drop for TimeGuard<S> {
 
 #[macro_export]
 macro_rules! time_guard {
-    ($namestr:expr $(,$arg:expr)*) => {
+    ($namestr:expr) => {
         let _guard = time_guard::TimeGuard {
             name: $namestr,
             start: std::time::Instant::now()

@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use sqlite::{State, Bindable, Statement};
 
-use crate::{def_boxed_thiserror, try_sqlite};
+use crate::{def_boxed_thiserror, try_sqlite, time_guard};
 
 use super::{types::FromStatement, sqliteposerror::SQLitePosError};
 
@@ -21,6 +21,7 @@ pub fn get_unique_by<'slf, 's, R, A>(
 where R: FromStatement,
       A: Bindable + Debug + Copy // references
 {
+    time_guard!(statement_name);
     try_sqlite!(sth.reset());
     try_sqlite!(sth.bind(arguments));
     match try_sqlite!(sth.next()) {
@@ -33,7 +34,7 @@ where R: FromStatement,
                 }.into()),
                 State::Done => Ok(Some(r)),
             }
-        },
+            },
         State::Done => Ok(None),
     }
 }
