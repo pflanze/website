@@ -1,4 +1,11 @@
+# My website
 
+This is the code that serves my website at `christianjaeger.ch`. It
+also has the functionality to serve a blog, and has a preview for blog
+posts with user logins.
+
+It's a work in progress. YMMV. I might work to make this more
+reusable, and publish a blog post about it.
 
 ## Installation
 
@@ -13,7 +20,44 @@ necessary, since recent `ring` explicitly only uses precompiled
 binaries on Windows. Or you could trust the systems where those
 binaries were built, of course.
 
+I have modified the `blake3` crate to use an older version of
+`constant_time_eq` that compiles with rustc from Debian stable. You
+need to clone `https://github.com/pflanze/BLAKE3` locally so that
+it is available at path `../src/BLAKE3`. There's a Git signature just
+like in this repo.
 
+## Configuration
 
-IS_DEV=1
+### `example`
 
+Doesn't need anything, just connect to port 3000 on localhost.
+
+### `website`
+
+The `website` program reads a number of environment variables. E.g.:
+
+    IS_DEV=1
+    SESSIONID_HASHER_SECRET=$your_secret_string
+
+These dirs need to exist (you could also use symlinks):
+
+    mkdir data/{blog,preview}
+
+The `accounts.db` sqlite database file needs to exist. Create via 
+
+    sqlite3 accounts.db < accounts-schema.sql
+
+Access to the `/preview` path is restricted. Run `cargo run --bin
+access_control -- --help` for how to create a group, users, and adding
+the users to the group. As a minimum:
+
+    cargo run --bin access_control -- create-group --group preview
+
+Then for each user:
+
+    cargo run --bin access_control -- create-user --user foo
+    cargo run --bin access_control -- add --group preview --user foo
+
+There's currently no rate limiting, so use good passwords (it does
+slow down each login attempt to take a second, though; hence the
+minimum is about 56 bits of entropy).
