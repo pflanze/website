@@ -36,8 +36,8 @@ blake3 = { path = "../src/BLAKE3" }
 http-body = "0.4"
 
 # Use Rouille instead:
-#rouille = { version = "3.6", default-features = true, features = ["rustls"] }
-rouille = { path = "../src/rouille", default-features = true, features = ["rustls"] }
+rouille = { version = "3.6", default-features = true, features = ["rustls"] }
+#rouille = { path = "../src/rouille", default-features = true, features = ["rustls"] }
 httpdate = "1.0"
 
 # pulldown-cmark = { version = "0.9.3", default-features = false, features = ["simd"] }
