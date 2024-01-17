@@ -4,7 +4,9 @@ use anyhow::{Result, bail, anyhow};
 use clap::Parser as ClapParser;
 use website::{access_control::{statements_and_methods::DO_WARN_THREAD,
                                db::access_control_transaction,
-                               types::User, trimcheck::{trimcheck_password, trimcheck_username, trimcheck_groupname, trimcheck_email}},
+                               types::User,
+                               trimcheck::{trimcheck_password, trimcheck_username,
+                                           trimcheck_groupname, trimcheck_email}},
               hash_util::create_password_hash};
 
 
@@ -30,8 +32,9 @@ fn ask_input(ask: &str) -> Result<String> {
 /// Change the access control database.
 struct Args {
     /// Action, one of "create-user", "create-group", "add" (user to
-    /// group), "remove" (user from group), or one of the queries
-    /// "user-in-group", "list" (user or group, with associations).
+    /// group), "remove" (user from group), "passwd" (change passwd of
+    /// a user) or one of the queries "user-in-group", "list" (user or
+    /// group, with associations).
     #[clap(required(true))]
     action: String,
     
