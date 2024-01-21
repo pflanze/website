@@ -22,7 +22,7 @@ use rouille::Server;
 use website::nav::{Nav, NavEntry, SubEntries};
 use website::router::MultiRouter;
 use website::util::{log_basedir, getenv_or, getenv, xgetenv};
-use website::webparts::{markdownpage_handler, blog_handler, server_handler, login_handler, Restricted};
+use website::webparts::{markdownpage_handler, blog_handler, server_handler, login_handler, Restricted, markdowndir_handler};
 use website::website_layout::WebsiteLayout;
 use website::handler::Handler;
 use website::{website_benchmark, warn};
@@ -132,6 +132,7 @@ fn main() -> Result<()> {
     })?;
     let mut router : MultiRouter<Arc<dyn Handler>> = MultiRouter::new();
     router
+        .add("/login", login_handler(style.clone()))
         .add("/bench", Arc::new(ExactFnHandler(website_benchmark::benchmark)))
         .add("/", markdownpage_handler(&in_datadir("index.md"), style.clone()))
         .add("/climate.html", markdownpage_handler(&in_datadir("climate.md"), style.clone()))
@@ -145,7 +146,7 @@ fn main() -> Result<()> {
             Blog::open(in_datadir("preview"), &ALLOCPOOL, footnotestyle)?,
             style.clone())
              .restricted_to_group(preview_groupid, style.clone()))
-        .add("/login", login_handler(style.clone()))
+        .add("/p", markdowndir_handler(&in_datadir("p"), style.clone()))
         ;
     if let Some(wwwdir) = wwwdir {
         router.add("/", Arc::new(FileHandler::new(wwwdir)));
