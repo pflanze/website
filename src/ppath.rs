@@ -163,6 +163,23 @@ where T: From<&'s str> + MyAsStr + Clone + Debug
         }
     }
 
+    /// True if there are either `.` nor `..` segments.
+    pub fn contains_dot_or_dotdot(&self) -> bool {
+        self.segments.iter().any(
+            |s| {
+                match s.my_as_str() {
+                    "." => true,
+                    ".." => true,
+                    _ => false
+                }
+            })
+    }
+
+    /// True if there are neither `.` nor `..` segments.
+    pub fn is_canonical(&self) -> bool {
+        ! self.contains_dot_or_dotdot()
+    }
+
     /// More efficient than parsing `other` into a `PPAth` and
     /// comparing afterwards, and ignores differences on is_absolute
     /// and ends_with_slash!
@@ -351,5 +368,19 @@ mod tests {
         assert_eq!(minus("/blog", "/blog/2023/10/22/foo.html"),  "../../..");
         // ^ Wow, *Firefox* adds the slash to the end of the target
         // url in this case!
+    }
+
+    #[test]
+    fn t_canonical() {
+        let canon = |s| -> bool {
+            PPath::<&str>::from_str(s).is_canonical()
+        };
+        assert!(canon("a///b/c.html"));
+        assert!(canon("c.html"));
+        assert!(canon("")); // XXX ?
+        assert!(! canon("."));
+        assert!(! canon("./a"));
+        assert!(! canon("a//./b/c.html"));
+        assert!(! canon("a//../c.html"));
     }
 }
