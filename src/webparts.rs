@@ -1,7 +1,10 @@
 
 //! Components making up a website, parameterized via a trait.
 
-use std::{path::PathBuf, sync::{Arc, Mutex}, time::{SystemTime, Instant, Duration}, fmt::Debug};
+use std::{path::PathBuf,
+          sync::{Arc, Mutex},
+          time::{SystemTime, Instant, Duration},
+          fmt::Debug};
 
 use anyhow::{Result, Context, anyhow, bail};
 use blake3::Hasher;
@@ -32,7 +35,7 @@ use crate::{arequest::ARequest,
             time_util::{self, now_unixtime},
             ipaddr_util::IpAddrOctets,
             auri::{AUriLocal, QueryString},
-            notime};
+            notime, path::{path_append, extension_eq, base}};
 use crate::{try_result, warn, nodt, time_guard};
 
 // ------------------------------------------------------------------
@@ -258,7 +261,7 @@ fn markdownprocessor(
     request: &ARequest,
     path: PathBuf,
     html: &HtmlAllocator    
-) -> Result<AResponse>
+) -> Result<Response>
 {
     htmlresponse(html, HttpResponseStatusCode::OK200, |html| {
         let stat = path.metadata().with_context(
@@ -286,17 +289,16 @@ fn markdownprocessor(
             None, // XX
             Some(stat.modified()?)
         )
-    }).map(AResponse::from)
+    })
 }
 
-// Convenience to place an md file from a particular fspath to a
-// particular routing point.
+// To place a particular md file via its fspath.
 pub fn markdownpage_handler(
-    path: &str,
+    file_path: &str,
     style: Arc<dyn LayoutInterface>
 ) -> Arc<dyn Handler>
 {
-    let path = PathBuf::from(path);
+    let path = PathBuf::from(file_path);
     Arc::new(ExactFnHandler(
         move |
         request: &ARequest, method: HttpRequestMethodSimple, html: &HtmlAllocator
@@ -306,6 +308,90 @@ pub fn markdownpage_handler(
                 bail!("can't POST to a markdownpage"); // currently, anyway
             }
             markdownprocessor(style.clone(), request, path.clone(), html)
+                .map(AResponse::from)
+        }
+    ))
+}
+
+// Serve markdown files from sub-paths from the given `dir_path`;
+// sub-paths can contain directory segments. Only requests with path
+// suffix `.html` are being served (otherwise the handler declines
+// handling), and a file with suffix `.md` in it's place is read if
+// available (otherwise a 404 result is returned).
+
+// There is no directory listing, and delivery is delayed by around
+// 0.2 seconds to hide potential side channels that would enable path
+// discovery as well as to make brute forcing harder. This handler is
+// thus suitable to host unlisted files only meant to be reachable via
+// an explicitly shared URL. You still need to choose sufficiently
+// random sub-paths for them to evade brute forcing!
+pub fn markdowndir_handler(
+    dir_path: &str,
+    style: Arc<dyn LayoutInterface>
+) -> Arc<dyn Handler>
+{
+    let path = PathBuf::from(dir_path);
+    Arc::new(FnHandler(
+        move |
+        request: &ARequest,
+        method: HttpRequestMethodSimple,
+        path_rest: &PPath<KString>,
+        html: &HtmlAllocator
+            | -> Result<Option<AResponse>>
+        {
+            let path_rest_string = path_rest.to_string();
+            if ! extension_eq(&path_rest_string, "html") {
+                return Ok(None);
+            }
+            if method.is_post() {
+                bail!("can't POST to a markdownpage"); // currently, anyway
+            }
+            if ! path_rest.is_canonical() {
+                bail!("requested path rest isn't canonical: {:?}",
+                      path_rest.to_string())
+            }
+            
+            // COPY-PASTE from login_handler, except using a shorter delay
+            let start: Instant = Instant::now();
+            let delayed = |response: Result<Option<Response>>| -> Result<Option<AResponse>>
+            {
+                let _micros: Weibull<f64> = Weibull::new(200000., 20.)?;
+                let micros: f64 = thread_rng().sample(_micros);
+                dbg!(micros);
+                let target = start.checked_add(Duration::from_micros(micros as u64))
+                    .expect("does not fail (overflow) because we only add a second");
+                response.map(|v| v.map(|r| r.to_aresponse(Some(target))))
+            };
+            // /COPY-PASTE
+            let mut fspath = path_append(&path, &base(&path_rest_string).expect(
+                "succeeds because we know it has a html suffix from above"));
+            if ! fspath.set_extension("md") {
+                bail!("missing file name? not possible?")
+            }
+            // warn!("have fspath = {fspath:?}");
+            delayed(try_result!{
+                let not_found = || {
+                    // XX todo: return styled 404, not generic error page
+                    Ok(Some(errorpage_from_status(HttpResponseStatusCode::NotFound404)))
+                };
+                match fspath.metadata() {
+                    Ok(stat) => 
+                        if ! stat.is_file() {
+                            warn!("not a file: {:?}", &fspath);
+                            return not_found();
+                        },
+                    Err(e) => match e.kind() {
+                        std::io::ErrorKind::NotFound => return not_found(),
+                        _ => {
+                            warn!("Error getting metadata: {e:?} \
+                                   for path {:?}", &fspath);
+                            // but return 404 anyway, ok?
+                            return not_found();
+                        }
+                    }
+                }
+                Ok(Some(markdownprocessor(style.clone(), request, fspath, html)?))
+            })
         }
     ))
 }
