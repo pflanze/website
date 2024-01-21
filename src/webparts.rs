@@ -357,7 +357,6 @@ pub fn markdowndir_handler(
             {
                 let _micros: Weibull<f64> = Weibull::new(200000., 20.)?;
                 let micros: f64 = thread_rng().sample(_micros);
-                dbg!(micros);
                 let target = start.checked_add(Duration::from_micros(micros as u64))
                     .expect("does not fail (overflow) because we only add a second");
                 response.map(|v| v.map(|r| r.to_aresponse(Some(target))))
@@ -629,7 +628,6 @@ pub fn login_handler(
                 {
                     let _micros: Weibull<f64> = Weibull::new(1100000., 20.)?;
                     let micros: f64 = thread_rng().sample(_micros);
-                    dbg!(micros);
                     let target = start.checked_add(Duration::from_micros(micros as u64))
                         .expect("does not fail (overflow) because we only add a second");
                     response.map(|v| v.map(|r| r.to_aresponse(Some(target))))
