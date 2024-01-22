@@ -6,6 +6,10 @@
 /// `From` forwarding, `thiserror`'s `#[from]` syntax still
 /// works. Also implements `Debug`. `FooKind` has to be defined
 /// separately.
+
+/// *Note*: does not support type parameters. This might be OK for
+/// error types? Otherwise will have to change the macro into a proc
+/// macro.
 #[macro_export]
 macro_rules! def_boxed_error {
     ($wrappername:ident, $kindname:ident) => {
