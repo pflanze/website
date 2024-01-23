@@ -93,7 +93,7 @@ impl Db {
     pub fn with_connection<'s, F, R, E>(&'s mut self, f: F) -> Result<R, E>
     where
         F: FnOnce(&'s Connection, &'s mut Statements) -> Result<R, E>,
-        E: From<SQLitePosError>
+        E: From<SQLitePosError> // for connection initialization errors
     {
         {
             let oc = &mut self.connection;

@@ -13,7 +13,7 @@ use crate::{access_control::trimcheck::{trimcheck_username, trimcheck_password},
 use self::{db::access_control_transaction,
            types::User,
            trimcheck::InputCheckFailure,
-           transaction::TransactionError,
+           transaction::{TransactionError, TransactError},
            util::UniqueError,
            sqliteposerror::SQLitePosError};
 
@@ -25,9 +25,9 @@ def_boxed_thiserror!(CheckAccessError, pub enum CheckAccessErrorKind {
     #[error("checking access")]
     SQLitePosError(#[from] SQLitePosError),
     #[error("checking access")]
-    TransactionError(#[from] TransactionError),
+    UniqueError(#[from] UniqueError),
     #[error("checking access")]
-    UniqueError(#[from] UniqueError)
+    TransactionError(#[from] TransactionError),
 });
 
 pub fn check_username_password(
@@ -36,7 +36,7 @@ pub fn check_username_password(
 {
     let username = trimcheck_username(username)?;
     let password = trimcheck_password(password)?;
-    access_control_transaction(|trans| -> Result<Option<User>, CheckAccessError> {
+    match access_control_transaction(|trans| -> Result<Option<User>, CheckAccessError> {
         if let Some(user) = trans.get_user_by_username(username)? {
             if verify_password(password, &user.hashed_pass)? {
                 Ok(Some(user))
@@ -46,5 +46,11 @@ pub fn check_username_password(
         } else {
             Ok(None)
         }
-    })
+    }) {
+        Ok(v) => Ok(v),
+        Err(e) => match e {
+            TransactError::TransactionError(e) => Err(e.into()),
+            TransactError::HandlerError(e) => Err(e.into())
+        }
+    }
 }

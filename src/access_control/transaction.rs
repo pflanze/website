@@ -1,13 +1,17 @@
-use std::ops::{Deref, DerefMut};
+use std::{ops::{Deref, DerefMut}, fmt::Debug, time::Duration};
 
-use crate::{warn, def_boxed_thiserror, try_sqlite};
+use crate::{warn, def_boxed_thiserror, try_sqlite, try_result};
 use super::{statements_and_methods::Db, sqliteposerror::SQLitePosError};
 
 def_boxed_thiserror!(TransactionError, pub enum TransactionErrorKind {
-    #[error("Db is not connected")]
+    #[error("sqlite Db is not connected")]
     NotConnected,
-    #[error("sqlite error: {0}")]
-    SQLitePosError(#[from] SQLitePosError),
+    #[error("sqlite initialisation error: {0}")]
+    InitError(#[from] SQLitePosError),
+    #[error("sqlite error on transaction begin: {0}")]
+    BeginError(sqlite::Error),
+    #[error("sqlite error on transaction commit: {0}")]
+    CommitError(sqlite::Error),
 });
 
 pub struct Transaction<'t> {
@@ -21,8 +25,10 @@ impl<'t> Transaction<'t> {
     /// not committed.
     pub fn new(db: &'t mut Db) -> Result<Self, TransactionError> {
         db.with_connection(|conn, _statements| -> Result<(), TransactionError> {
-            try_sqlite!(conn.execute("BEGIN TRANSACTION"));
-            Ok(())
+            match conn.execute("BEGIN TRANSACTION") {
+                Ok(_) => Ok(()),
+                Err(e) => Err(TransactionErrorKind::BeginError(e))?
+            }
         })?;
         Ok(Self {
             db,
@@ -64,6 +70,74 @@ impl<'t> Drop for Transaction<'t> {
                 "connected when Transaction exists");
             if let Err(e) = conn.execute("ROLLBACK TRANSACTION") {
                 warn!("drop Transaction: ROLLBACK gave error: {e:?}");
+            }
+        }
+    }
+}
+
+
+// Can't take type arguments with def_boxed_thiserror, thus use an
+// unboxed representation.
+#[derive(thiserror::Error, Debug)]
+pub enum TransactError<E: Debug> {
+    #[error("transaction error: {0}")]
+    TransactionError(TransactionError),
+    #[error("error in transaction handler: {0}")]
+    HandlerError(E),
+}
+
+pub fn transact<F, R, E>(db: &mut Db, f: F) -> Result<R, TransactError<E>>
+where F: Fn(&mut Transaction) -> Result<R, E>,
+      E: Debug
+{
+    let mut sleeptime = 500; // microseconds
+    let mut attempt = 1;
+    let last_attempt = 12; // ~2 seconds total
+    loop {
+        let r: Result<Result<R, E>, TransactionError> = try_result!{
+            let mut trans = Transaction::new(db)?;
+            let r: Result<R, E> = f(&mut trans);
+            if r.is_ok() {
+                trans.commit()?;
+            }
+            Ok(r)
+        };
+        macro_rules! retry {
+            ( $errkind:expr, $errconstr:expr, $e:ident ) => {{
+                if attempt < last_attempt {
+                    warn!("transact: on attempt {attempt} got {} error: {:?}",
+                          $errkind, $e);
+                    attempt += 1;
+                    time_guard!("transact sleep");
+                    std::thread::sleep(Duration::from_micros(sleeptime));
+                    sleeptime *= 2;
+                } else {
+                    return Err($errconstr($e))
+                }
+            }}
+        }
+        match r {
+            Ok(r) => match r {
+                Ok(v) => return Ok(v),
+                Err(e) => 
+                    // Do we *have* to retry these, too? Yes.
+                    retry!("handler", TransactError::HandlerError, e),
+            }
+            Err(e) => {
+                macro_rules! immediate {
+                    () => {
+                        return Err(TransactError::TransactionError(e))
+                    }
+                }
+                    
+                match &*e {
+                    TransactionErrorKind::NotConnected => immediate!(),
+                    TransactionErrorKind::InitError(_) => immediate!(),
+                    TransactionErrorKind::BeginError(_) =>
+                        retry!("transaction", TransactError::TransactionError, e),
+                    TransactionErrorKind::CommitError(_) =>
+                        retry!("transaction", TransactError::TransactionError, e),
+                }
             }
         }
     }

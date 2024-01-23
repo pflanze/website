@@ -667,7 +667,7 @@ pub fn login_handler(
                                                    from ip {oldip:?}, now {ip:?}");
                                         }
                                     }
-                                    sessiondata.ip = Some(ip);
+                                    sessiondata.ip = Some(ip.clone());
                                 }
                                 sessiondata.last_request_time = now_unixtime;
                                 trans.update_sessiondata(&sessiondata)?;
@@ -678,7 +678,7 @@ pub fn login_handler(
                                     session_id,
                                     now_unixtime,
                                     Some(user_id),
-                                    Some(ip),
+                                    Some(ip.clone()),
                                     request.sessionid_hasher()
                                 );
                                 trans.insert_sessiondata(&sessiondata)?;
