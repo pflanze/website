@@ -65,7 +65,7 @@ fn main() -> Result<()> {
             // Run the check in a separate transaction to avoid
             // blocking other processes while reading from stdin! The
             // UNIQUE constraint will catch any race condition anyway.
-            access_control_transaction(|trans| {
+            access_control_transaction(false, |trans| {
                 if let Some(user) = trans.get_user_by_username(username)? {
                     bail!("already got user with given username, name {:?}, surname {:?}",
                           user.name, user.surname);
@@ -81,18 +81,18 @@ fn main() -> Result<()> {
             let password = trimcheck_password(&_password)?;
             // ^ XX allow repeat ask
             let hashed_pass = create_password_hash(&password)?;
-            access_control_transaction(|trans| -> Result<_> {
-                let user = User {
-                    id: None,
-                    username: username.to_string(),
-                    email: email.map(|v| v.to_string()),
-                    name,
-                    surname,
-                    hashed_pass,
-                };
+            let user = User {
+                id: None,
+                username: username.to_string(),
+                email: email.map(|v| v.to_string()),
+                name,
+                surname,
+                hashed_pass,
+            };
+            access_control_transaction(true, |trans| -> Result<_> {
                 trans.insert_user(&user)?;
                 Ok(())
-            })
+            }).map_err(anyhow::Error::from)
         }
         "create-group" => {
             if args.user.is_some() {
@@ -102,9 +102,9 @@ fn main() -> Result<()> {
                 trimcheck_groupname(
                     args.group.as_ref().ok_or_else(
                         || anyhow!("need --group option"))?)?;
-            access_control_transaction(|trans| {
+            access_control_transaction(true, |trans| {
                 trans.insert_group(groupname)
-            })
+            }).map_err(anyhow::Error::from)
         }
         "add" => {
             let username: &str =
@@ -115,7 +115,7 @@ fn main() -> Result<()> {
                 trimcheck_groupname(
                     args.group.as_ref().ok_or_else(
                         || anyhow!("need --group option"))?)?;
-            access_control_transaction(|trans| {
+            access_control_transaction(true, |trans| {
                 let user = trans.get_user_by_username(username)?.ok_or_else(
                     || anyhow!("There's no user with username {username:?}"))?;
                 let group = trans.get_group_by_groupname(groupname)?.ok_or_else(
@@ -125,7 +125,7 @@ fn main() -> Result<()> {
                     bail!("User {username:?} and group {groupname:?} are already connected")
                 }
                 trans.add_user_in_group(&user, &group)
-            })
+            }).map_err(anyhow::Error::from)
         }
         "remove" => {
             let username: &str =
@@ -136,13 +136,13 @@ fn main() -> Result<()> {
                 trimcheck_groupname(
                     args.group.as_ref().ok_or_else(
                         || anyhow!("need --group option"))?)?;
-            access_control_transaction(|trans| {
+            access_control_transaction(true, |trans| {
                 let user = trans.get_user_by_username(username)?.ok_or_else(
                     || anyhow!("There's no user with username {username:?}"))?;
                 let group = trans.get_group_by_groupname(groupname)?.ok_or_else(
                     || anyhow!("There's no group with groupname {groupname:?}"))?;
                 trans.remove_user_in_group(&user, &group)
-            })
+            }).map_err(anyhow::Error::from)
         }
         "user-in-group" => {
             let username: &str =
@@ -153,7 +153,7 @@ fn main() -> Result<()> {
                 trimcheck_groupname(
                     args.group.as_ref().ok_or_else(
                         || anyhow!("need --group option"))?)?;
-            let r = access_control_transaction(|trans| -> Result<_> {
+            let r = access_control_transaction(false, |trans| -> Result<_> {
                 let user = trans.get_user_by_username(username)?.ok_or_else(
                     || anyhow!("There's no user with username {username:?}"))?;
                 let group = trans.get_group_by_groupname(groupname)?.ok_or_else(
@@ -177,7 +177,7 @@ fn main() -> Result<()> {
             if args.group.is_some() {
                 bail!("can't (currently) set passwd for group")
             }
-            access_control_transaction(|trans| -> Result<_> {
+            access_control_transaction(false, |trans| -> Result<_> {
                 let _user = trans.get_user_by_username(username)?.ok_or_else(
                     || anyhow!("There's no user with username {username:?}"))?;
                 Ok(())
@@ -185,13 +185,13 @@ fn main() -> Result<()> {
             let _password = ask_input("new password")?;
             let password = trimcheck_password(&_password)?;
             let hashed_pass = create_password_hash(password)?;
-            access_control_transaction(|trans| -> Result<_> {
+            access_control_transaction(true, |trans| -> Result<_> {
                 let mut user = trans.get_user_by_username(username)?.ok_or_else(
                     || anyhow!("There's no user with username {username:?}"))?;
-                user.hashed_pass = hashed_pass;
+                user.hashed_pass = hashed_pass.clone();
                 trans.update_user(&user)?;
                 Ok(())
-            })
+            }).map_err(anyhow::Error::from)
         }
         "list" => {
             todo!()
