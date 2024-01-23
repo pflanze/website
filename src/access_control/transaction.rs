@@ -93,11 +93,24 @@ pub fn transact<F, R, E>(db: &mut Db, f: F) -> Result<R, TransactError<E>>
 where F: Fn(&mut Transaction) -> Result<R, E>,
       E: Debug
 {
-    let mut sleeptime = 500; // microseconds
+
+    // Sleep with exponential backoff (XX: should perhaps use some randomization)
+    let mut get_sleeptime = {
+        let mut sleeptime: u32 = 500; // microseconds
+        move || {
+            let old_sleeptime = sleeptime;
+            sleeptime = old_sleeptime * 5 / 4;
+            old_sleeptime
+        }
+    };
+    // 1_000_000 with `* 5 / 4` leads to 36 attempts accumulating 6.1
+    // seconds.
+    let max_sleeptime: u32 = 1_000_000; // microseconds
     let mut attempt = 1;
-    let last_attempt = 12; // ~2 seconds total
+
     loop {
         let r: Result<Result<R, E>, TransactionError> = try_result!{
+            
             let mut trans = Transaction::new(db)?;
             let r: Result<R, E> = f(&mut trans);
             if r.is_ok() {
@@ -107,13 +120,13 @@ where F: Fn(&mut Transaction) -> Result<R, E>,
         };
         macro_rules! retry {
             ( $errkind:expr, $errconstr:expr, $e:ident ) => {{
-                if attempt < last_attempt {
+                let sleeptime = get_sleeptime();
+                if sleeptime < max_sleeptime {
                     warn!("transact: on attempt {attempt} got {} error: {:?}",
                           $errkind, $e);
                     attempt += 1;
                     time_guard!("transact sleep");
-                    std::thread::sleep(Duration::from_micros(sleeptime));
-                    sleeptime *= 2;
+                    std::thread::sleep(Duration::from_micros(sleeptime as u64));
                 } else {
                     return Err($errconstr($e))
                 }
