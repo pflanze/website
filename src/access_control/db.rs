@@ -9,13 +9,15 @@ thread_local!{
         RefCell::new(Db::mynew("accounts.db"));
 }
 
-pub fn access_control_transaction<F, R, E>(f: F) -> Result<R, TransactError<E>>
+pub fn access_control_transaction<F, R, E>(
+    will_write: bool, f: F
+) -> Result<R, TransactError<E>>
 where F: Fn(&mut Transaction) -> Result<R, E>,
       E: Debug
 {
     DB.with(|b| {
         let mut r = b.borrow_mut();
         let db = &mut *r;
-        transact(db, f)
+        transact(db, will_write, f)
     })
 }

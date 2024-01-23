@@ -127,7 +127,7 @@ fn main() -> Result<()> {
                                        Some("headerpic"))?])?))
             }}),
     });
-    let preview_groupid = access_control_transaction(|trans| -> Result<_> {
+    let preview_groupid = access_control_transaction(false, |trans| -> Result<_> {
         Ok(trans.xget_group_by_groupname("preview")?.id.expect("present from db"))
     })?;
     let mut router : MultiRouter<Arc<dyn Handler>> = MultiRouter::new();

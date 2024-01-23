@@ -1,4 +1,4 @@
-use std::{path::PathBuf, pin::Pin, sync::atomic::AtomicBool};
+use std::{path::PathBuf, pin::Pin, sync::{atomic::AtomicBool, Mutex}};
 
 use anyhow::{bail, Result};
 use blake3::Hasher;
@@ -33,6 +33,7 @@ pub struct Statements {
 
 pub struct Db {
     path: PathBuf,
+    write_transaction_mutex: Mutex<()>,
     pub(crate) connection: Option<Pin<Box<Connection>>>,
     statements: Statements
 }
@@ -85,7 +86,8 @@ impl Db {
                 st_select_sessiondata_by_sessionid: None,
                 st_update_sessiondata: None,
                 st_insert_into_sessiondata: None,
-            }
+            },
+            write_transaction_mutex: Default::default(),
         }
     }
 

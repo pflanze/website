@@ -640,7 +640,7 @@ pub fn login_handler(
                         let session_id = request.session_id();
                         let now_unixtime = now_unixtime();
                         let ip = request.client_ip().octets();
-                        access_control_transaction(|trans| -> Result<()> {
+                        access_control_transaction(true, |trans| -> Result<()> {
                             // Check if the session is already active
                             // (possible if data was stored before logging in)
                             if let Some(mut sessiondata) =
@@ -745,7 +745,7 @@ impl Restricted for Arc<dyn Handler> {
             // if ! session.client_has_sid() {
             //     todo!()
             // }
-            let state = access_control_transaction(move |trans| -> Result<_> {
+            let state = access_control_transaction(true, move |trans| -> Result<_> {
                 if let Some(mut sessiondata) = notime!{
                     "get_sessiondata_by_sessionid";
                     trans.get_sessiondata_by_sessionid(

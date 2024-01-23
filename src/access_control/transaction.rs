@@ -22,11 +22,14 @@ pub struct Transaction<'t> {
 impl<'t> Transaction<'t> {
     /// Taking mut since there can only be one transaction in
     /// progress. The transaction will be rolled back when dropped and
-    /// not committed.
-    pub fn new(db: &'t mut Db) -> Result<Self, TransactionError> {
+    /// not committed. If `will_write` is true, uses an `EXCLUSIVE`
+    /// transaction (should it take an DEFERRED / IMMEDIATE /
+    /// EXCLUSIVE enum?).
+    pub fn new(db: &'t mut Db, will_write: bool) -> Result<Self, TransactionError> {
         db.with_connection(|conn, _statements| -> Result<(), TransactionError> {
-            match conn.execute("BEGIN TRANSACTION") {
-                Ok(_) => Ok(()),
+            match conn.execute(if will_write {"BEGIN EXCLUSIVE TRANSACTION"}
+                               else {"BEGIN TRANSACTION"}) {
+                Ok(()) => Ok(()),
                 Err(e) => Err(TransactionErrorKind::BeginError(e))?
             }
         })?;
@@ -89,7 +92,24 @@ pub enum TransactError<E: Debug> {
     HandlerError(E),
 }
 
-pub fn transact<F, R, E>(db: &mut Db, f: F) -> Result<R, TransactError<E>>
+/// Run a transaction on `db`. The `handler` gets the transaction
+/// handle (on which it can find the methods to interact with the db;
+/// this is a hack and to be replaced with something scalable). If the
+/// handler returns a database error that has a chance of succeeding
+/// via retry (SQLite issues SQLITE_BUSY (code 5) errors when multiple
+/// threads are running a writing transaction at the same time), the
+/// handler is re-run in a new transaction while sleeping between
+/// retries with exponential backoff, until the handler succeeds or
+/// about 2-4 seconds have passed, at which point the error is
+/// returned. If `will_write` is true, locks a mutex first, to avoid
+/// needless retries (hopefully lowering both the latency and CPU
+/// usage) and starts an `EXCLUSIVE` transaction. The handler can
+/// still write to the db even if `will_write` is false, but in that
+/// case retries will definitely happen when concurrent accesses
+/// happen.
+pub fn transact<F, R, E>(
+    db: &mut Db, will_write: bool, handler: F
+) -> Result<R, TransactError<E>>
 where F: Fn(&mut Transaction) -> Result<R, E>,
       E: Debug
 {
@@ -111,8 +131,8 @@ where F: Fn(&mut Transaction) -> Result<R, E>,
     loop {
         let r: Result<Result<R, E>, TransactionError> = try_result!{
             
-            let mut trans = Transaction::new(db)?;
-            let r: Result<R, E> = f(&mut trans);
+            let mut trans = Transaction::new(db, will_write)?;
+            let r: Result<R, E> = handler(&mut trans);
             if r.is_ok() {
                 trans.commit()?;
             }

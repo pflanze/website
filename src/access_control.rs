@@ -36,7 +36,7 @@ pub fn check_username_password(
 {
     let username = trimcheck_username(username)?;
     let password = trimcheck_password(password)?;
-    match access_control_transaction(|trans| -> Result<Option<User>, CheckAccessError> {
+    match access_control_transaction(false, |trans| -> Result<Option<User>, CheckAccessError> {
         if let Some(user) = trans.get_user_by_username(username)? {
             if verify_password(password, &user.hashed_pass)? {
                 Ok(Some(user))
