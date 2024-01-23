@@ -1,4 +1,4 @@
-use std::{path::PathBuf, pin::Pin, sync::{atomic::AtomicBool, Mutex}};
+use std::{path::PathBuf, pin::Pin, sync::{atomic::AtomicBool, Mutex, Arc}};
 
 use anyhow::{bail, Result};
 use blake3::Hasher;
@@ -31,14 +31,32 @@ pub struct Statements {
     // WARNING: don't forget to add new fields to Drop for Db !
 }
 
-pub struct DbConnection {
-    path: PathBuf,
-    write_transaction_mutex: Mutex<()>,
+pub struct Db {
+    path: Arc<PathBuf>,
+    pub(crate) write_transaction_mutex: Mutex<()>,
+}
+
+impl Db {
+    pub fn new(path: &str) -> Self {
+        Db {
+            path: Arc::new(path.into()),
+            write_transaction_mutex: Default::default()
+        }
+    }
+}
+
+pub struct ConnectionAndStatements {
+    path: Arc<PathBuf>, // clone from Db
     pub(crate) connection: Option<Pin<Box<Connection>>>,
     statements: Statements
 }
 
-impl Drop for DbConnection {
+pub struct DbConnection {
+    pub(crate) db: Arc<Db>,
+    pub(crate) connection_and_statements: ConnectionAndStatements,
+}
+
+impl Drop for ConnectionAndStatements {
     fn drop(&mut self) {
         macro_rules! drop {
             { $field:ident } => {
@@ -62,35 +80,41 @@ impl Drop for DbConnection {
         drop!(st_select_sessiondata_by_sessionid);
         drop!(st_update_sessiondata);
         drop!(st_insert_into_sessiondata);
+        // drop(self.connection);
         warn_thread!("dropped Db");
     }
 }
 
 impl DbConnection {
-    pub(crate) fn mynew(path: &str) -> Self {
+    pub(crate) fn mynew(db: Arc<Db>) -> Self {
+        let path = db.path.clone();
         DbConnection {
-            path: path.into(),
-            connection: None,
-            statements: Statements {
-                st_select_user_by_id: None,
-                st_select_user_by_username: None,
-                st_select_group_by_groupname: None,
-                st_select_userid_from_username_groupname: None,
-                st_select_groupid_from_userid_groupname: None,
-                st_insert_into_user: None,
-                st_insert_into_group: None,
-                st_insert_userid_groupid: None,
-                st_delete_userid_groupid: None,
-                st_select_count_from_useringroup: None,
-                st_update_user: None,
-                st_select_sessiondata_by_sessionid: None,
-                st_update_sessiondata: None,
-                st_insert_into_sessiondata: None,
-            },
-            write_transaction_mutex: Default::default(),
+            db,
+            connection_and_statements: ConnectionAndStatements {
+                connection: None,
+                statements: Statements {
+                    st_select_user_by_id: None,
+                    st_select_user_by_username: None,
+                    st_select_group_by_groupname: None,
+                    st_select_userid_from_username_groupname: None,
+                    st_select_groupid_from_userid_groupname: None,
+                    st_insert_into_user: None,
+                    st_insert_into_group: None,
+                    st_insert_userid_groupid: None,
+                    st_delete_userid_groupid: None,
+                    st_select_count_from_useringroup: None,
+                    st_update_user: None,
+                    st_select_sessiondata_by_sessionid: None,
+                    st_update_sessiondata: None,
+                    st_insert_into_sessiondata: None,
+                },
+                path
+            }
         }
     }
+}
 
+impl ConnectionAndStatements {
     #[inline]
     pub fn with_connection<'s, F, R, E>(&'s mut self, f: F) -> Result<R, E>
     where
@@ -100,7 +124,7 @@ impl DbConnection {
         {
             let oc = &mut self.connection;
             if oc.is_none() {
-                let c = try_sqlite!(sqlite::open(&self.path));
+                let c = try_sqlite!(sqlite::open(&*self.path));
                 // Configure the connection
                 // ------------------------
                 try_sqlite!(c.execute("PRAGMA journal_mode = WAL"));
@@ -121,7 +145,6 @@ impl DbConnection {
         let s = &mut self.statements; // ?? why can I take a mut ref to statements from a & ?
         f(c, s)
     }
-
 }
 
 // ------------------------------------------------------------------
@@ -134,7 +157,7 @@ impl<'t> Transaction<'t> {
         &mut self, id: i64
     ) -> Result<Option<User>, UniqueError>
     {
-        self.with_select_user_by_id(|sth| {
+        self.connection_and_statements.with_select_user_by_id(|sth| {
             get_unique_by("select_user_by_id", sth, [id].as_ref())
         })
     }
@@ -149,7 +172,7 @@ impl<'t> Transaction<'t> {
         &mut self, username: &str
     ) -> Result<Option<User>, UniqueError>
     {
-        self.with_select_user_by_username(|sth| {
+        self.connection_and_statements.with_select_user_by_username(|sth| {
             get_unique_by("select_user_by_username", sth, [username].as_ref())
         })
     }
@@ -164,7 +187,7 @@ impl<'t> Transaction<'t> {
         &mut self, groupname: &str
     ) -> Result<Option<Group>, UniqueError>
     {
-        self.with_select_group_by_groupname(|sth| {
+        self.connection_and_statements.with_select_group_by_groupname(|sth| {
             get_unique_by("select_group_by_groupname", sth, [groupname].as_ref())
         })
     }
@@ -189,7 +212,7 @@ impl<'t> Transaction<'t> {
         &mut self, username: &str, groupname: &str
     ) -> Result<bool>
     {
-        self.with_select_userid_from_username_groupname(|sth| {
+        self.connection_and_statements.with_select_userid_from_username_groupname(|sth| {
             sth.reset()?;
             let arguments = [username, groupname];
             sth.bind(arguments.as_ref())?;
@@ -220,7 +243,7 @@ impl<'t> Transaction<'t> {
         &mut self, user_id: UserId, groupname: &str
     ) -> Result<bool, SQLitePosError>
     {
-        self.with_select_groupid_from_userid_groupname(|sth| {
+        self.connection_and_statements.with_select_groupid_from_userid_groupname(|sth| {
             try_sqlite!(sth.reset());
             try_sqlite!(user_id.bind(sth, 1));
             try_sqlite!(groupname.bind(sth, 2));
@@ -248,7 +271,7 @@ impl<'t> Transaction<'t> {
         &mut self, user: &User
     ) -> Result<(), SQLitePosError> {
         assert!(! user.id.is_some()); // relax if wanting to bypass auto-increment?
-        self.with_insert_into_user(|sth| {
+        self.connection_and_statements.with_insert_into_user(|sth| {
             try_sqlite!(sth.reset());
             try_sqlite!(user.bind(sth));
             match try_sqlite!(sth.next()) {
@@ -269,7 +292,7 @@ impl<'t> Transaction<'t> {
         &mut self, user: &User
     ) -> Result<(), SQLitePosError> {
         let _id = user.id.expect("has id because it was read from DB, or caller provided it");
-        self.with_update_user(|sth| {
+        self.connection_and_statements.with_update_user(|sth| {
             try_sqlite!(sth.reset());
             try_sqlite!(user.bind(sth));
             match try_sqlite!(sth.next()) {
@@ -287,7 +310,7 @@ impl<'t> Transaction<'t> {
     pub fn insert_group(
         &mut self, groupname: &str
     ) -> Result<()> {
-        self.with_insert_into_group(|sth| {
+        self.connection_and_statements.with_insert_into_group(|sth| {
             sth.reset()?;
             let arguments = [ groupname ];
             sth.bind(arguments.as_ref())?;
@@ -311,7 +334,7 @@ impl<'t> Transaction<'t> {
     ) -> Result<()> {
         let user_id = user.id.expect("user has id");
         let group_id = group.id.expect("group has id");
-        self.with_insert_userid_groupid(|sth| {
+        self.connection_and_statements.with_insert_userid_groupid(|sth| {
             sth.reset()?;
             let arguments = [ user_id.0, group_id.0 ];
             sth.bind(arguments.as_ref())?;
@@ -335,7 +358,7 @@ impl<'t> Transaction<'t> {
     ) -> Result<()> {
         let user_id = user.id.expect("user has id");
         let group_id = group.id.expect("group has id");
-        self.with_delete_userid_groupid(|sth| {
+        self.connection_and_statements.with_delete_userid_groupid(|sth| {
             sth.reset()?;
             let arguments = [ user_id.0, group_id.0 ];
             sth.bind(arguments.as_ref())?;
@@ -354,7 +377,7 @@ defn_with_statement!(with_select_count_from_useringroup,
 impl<'t> Transaction<'t> {
     pub fn user_in_group(&mut self, user_id: UserId, group_id: GroupId) -> Result<bool>
     {
-        self.with_select_count_from_useringroup(|sth| {
+        self.connection_and_statements.with_select_count_from_useringroup(|sth| {
             let count : Count =
                 get_unique_by("select_count_from_useringroup",
                               sth,
@@ -379,7 +402,7 @@ impl<'t> Transaction<'t> {
         &mut self, sessionid_hash: &[u8]
     ) -> Result<Option<SessionData>, UniqueError>
     {
-        self.with_select_sessiondata_by_sessionid(|sth| {
+        self.connection_and_statements.with_select_sessiondata_by_sessionid(|sth| {
             get_unique_by("select_sessiondata_by_sessionid", sth, [sessionid_hash].as_ref())
         })
     }
@@ -410,7 +433,7 @@ impl<'t> Transaction<'t> {
     ) -> Result<(), SQLitePosError> {
         let _id = sessiondata.id.expect(
             "has id because it was read from DB, or caller provided it");
-        self.with_update_sessiondata(|sth| {
+        self.connection_and_statements.with_update_sessiondata(|sth| {
             try_sqlite!(sth.reset());
             try_sqlite!(sessiondata.bind(sth));
             match try_sqlite!(sth.next()) {
@@ -431,7 +454,7 @@ impl<'t> Transaction<'t> {
         &mut self, sessiondata: &SessionData
     ) -> Result<(), SQLitePosError> {
         assert!(! sessiondata.id.is_some()); // relax if wanting to bypass auto-increment?
-        self.with_insert_into_sessiondata(|sth| {
+        self.connection_and_statements.with_insert_into_sessiondata(|sth| {
             try_sqlite!(sth.reset());
             try_sqlite!(sessiondata.bind(sth));
             match try_sqlite!(sth.next()) {

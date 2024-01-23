@@ -38,7 +38,7 @@ macro_rules! get_statement {
 #[macro_export]
 macro_rules! defn_with_statement {
     { $with_statement:ident, $statementvar:ident, $statementstr:expr } => {
-        impl Db {
+        impl ConnectionAndStatements {
             #[inline]
             pub fn $with_statement<'s, F, R, E>(
                 &'s mut self, f: F

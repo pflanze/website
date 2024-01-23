@@ -1,7 +1,7 @@
 use std::{ops::{Deref, DerefMut}, fmt::Debug, time::Duration};
 
-use crate::{warn, def_boxed_thiserror, try_sqlite, try_result};
-use super::{statements_and_methods::DbConnection, sqliteposerror::SQLitePosError};
+use crate::{warn, def_boxed_thiserror, try_sqlite};
+use super::{statements_and_methods::{DbConnection, ConnectionAndStatements}, sqliteposerror::SQLitePosError};
 
 def_boxed_thiserror!(TransactionError, pub enum TransactionErrorKind {
     #[error("sqlite Db is not connected")]
@@ -15,7 +15,7 @@ def_boxed_thiserror!(TransactionError, pub enum TransactionErrorKind {
 });
 
 pub struct Transaction<'t> {
-    db: &'t mut DbConnection,
+    pub(crate) connection_and_statements: &'t mut ConnectionAndStatements,
     is_committed: bool
 }
 
@@ -25,22 +25,25 @@ impl<'t> Transaction<'t> {
     /// not committed. If `will_write` is true, uses an `EXCLUSIVE`
     /// transaction (should it take an DEFERRED / IMMEDIATE /
     /// EXCLUSIVE enum?).
-    pub fn new(db: &'t mut DbConnection, will_write: bool) -> Result<Self, TransactionError> {
-        db.with_connection(|conn, _statements| -> Result<(), TransactionError> {
-            match conn.execute(if will_write {"BEGIN EXCLUSIVE TRANSACTION"}
-                               else {"BEGIN TRANSACTION"}) {
-                Ok(()) => Ok(()),
-                Err(e) => Err(TransactionErrorKind::BeginError(e))?
-            }
-        })?;
+    pub fn new(
+        connection_and_statements: &'t mut ConnectionAndStatements, will_write: bool
+    ) -> Result<Self, TransactionError> {
+        connection_and_statements.with_connection(
+            |conn, _statements| -> Result<(), TransactionError> {
+                match conn.execute(if will_write {"BEGIN EXCLUSIVE TRANSACTION"}
+                                   else {"BEGIN TRANSACTION"}) {
+                    Ok(()) => Ok(()),
+                    Err(e) => Err(TransactionErrorKind::BeginError(e))?
+                }
+            })?;
         Ok(Self {
-            db,
+            connection_and_statements,
             is_committed: false
         })
     }
 
     pub fn commit(mut self) -> Result<(), TransactionError> {
-        let conn = self.db.connection.as_mut().ok_or_else(
+        let conn = self.connection_and_statements.connection.as_mut().ok_or_else(
             || TransactionErrorKind::NotConnected)?;
         try_sqlite!(conn.execute("COMMIT TRANSACTION"));
         self.is_committed = true;
@@ -51,16 +54,16 @@ impl<'t> Transaction<'t> {
 // XX do we actually really want to deref?
 
 impl<'t> Deref for Transaction<'t> {
-    type Target = DbConnection;
+    type Target = ConnectionAndStatements;
 
     fn deref(&self) -> &Self::Target {
-        self.db
+        self.connection_and_statements
     }
 }
 
 impl<'t> DerefMut for Transaction<'t> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.db
+        self.connection_and_statements
     }
 }
 
@@ -69,7 +72,7 @@ impl<'t> DerefMut for Transaction<'t> {
 impl<'t> Drop for Transaction<'t> {
     fn drop(&mut self) {
         if ! self.is_committed {
-            let conn = self.db.connection.as_mut().expect(
+            let conn = self.connection_and_statements.connection.as_mut().expect(
                 "connected when Transaction exists");
             if let Err(e) = conn.execute("ROLLBACK TRANSACTION") {
                 warn!("drop Transaction: ROLLBACK gave error: {e:?}");
@@ -105,7 +108,7 @@ pub enum TransactError<E: Debug> {
 /// case retries will definitely happen when concurrent accesses
 /// happen.
 pub fn transact<F, R, E>(
-    db: &mut DbConnection, will_write: bool, handler: F
+    dbconnection: &mut DbConnection, will_write: bool, handler: F
 ) -> Result<R, TransactError<E>>
 where F: Fn(&mut Transaction) -> Result<R, E>,
       E: Debug
@@ -125,15 +128,21 @@ where F: Fn(&mut Transaction) -> Result<R, E>,
     let mut attempt = 1;
 
     loop {
-        let r: Result<Result<R, E>, TransactionError> = try_result!{
-            
-            let mut trans = Transaction::new(db, will_write)?;
+        let run_trans = |cs| {
+            let mut trans = Transaction::new(cs, will_write)?;
             let r: Result<R, E> = handler(&mut trans);
             if r.is_ok() {
                 trans.commit()?;
             }
             Ok(r)
         };
+        let r: Result<Result<R, E>, TransactionError> =
+            if will_write {
+                let _guard = dbconnection.db.write_transaction_mutex.lock();
+                run_trans(&mut dbconnection.connection_and_statements)
+            } else {
+                run_trans(&mut dbconnection.connection_and_statements)
+            };
         macro_rules! retry {
             ( $errkind:expr, $errconstr:expr, $e:ident ) => {{
                 let sleeptime = get_sleeptime();
