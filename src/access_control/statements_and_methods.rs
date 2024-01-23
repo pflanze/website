@@ -100,9 +100,16 @@ impl Db {
             if oc.is_none() {
                 let c = try_sqlite!(sqlite::open(&self.path));
                 // Configure the connection
+                // ------------------------
                 try_sqlite!(c.execute("PRAGMA journal_mode = WAL"));
-                // try_sqlite!(c.execute("PRAGMA synchronous = NORMAL"));
+                // https://www.sqlite.org/wal.html "Writers sync the
+                // WAL on every transaction commit if PRAGMA
+                // synchronous is set to FULL but omit this sync if
+                // PRAGMA synchronous is set to NORMAL". XX dangerous
+                // but OK for current usage.
+                try_sqlite!(c.execute("PRAGMA synchronous = NORMAL"));
                 try_sqlite!(c.execute("PRAGMA foreign_keys = ON"));
+
                 // Store it
                 *oc = Some(Box::pin(c));
                 warn_thread!("initialized database field");
