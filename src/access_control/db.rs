@@ -1,12 +1,12 @@
 use std::cell::RefCell;
 use std::fmt::Debug;
 
-use super::statements_and_methods::Db;
+use super::statements_and_methods::DbConnection;
 use super::transaction::{Transaction, transact, TransactError};
 
 thread_local!{
-    static DB: RefCell<Db> =
-        RefCell::new(Db::mynew("accounts.db"));
+    static DB: RefCell<DbConnection> =
+        RefCell::new(DbConnection::mynew("accounts.db"));
 }
 
 pub fn access_control_transaction<F, R, E>(

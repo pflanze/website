@@ -1,7 +1,7 @@
 use std::{ops::{Deref, DerefMut}, fmt::Debug, time::Duration};
 
 use crate::{warn, def_boxed_thiserror, try_sqlite, try_result};
-use super::{statements_and_methods::Db, sqliteposerror::SQLitePosError};
+use super::{statements_and_methods::DbConnection, sqliteposerror::SQLitePosError};
 
 def_boxed_thiserror!(TransactionError, pub enum TransactionErrorKind {
     #[error("sqlite Db is not connected")]
@@ -15,7 +15,7 @@ def_boxed_thiserror!(TransactionError, pub enum TransactionErrorKind {
 });
 
 pub struct Transaction<'t> {
-    db: &'t mut Db,
+    db: &'t mut DbConnection,
     is_committed: bool
 }
 
@@ -25,7 +25,7 @@ impl<'t> Transaction<'t> {
     /// not committed. If `will_write` is true, uses an `EXCLUSIVE`
     /// transaction (should it take an DEFERRED / IMMEDIATE /
     /// EXCLUSIVE enum?).
-    pub fn new(db: &'t mut Db, will_write: bool) -> Result<Self, TransactionError> {
+    pub fn new(db: &'t mut DbConnection, will_write: bool) -> Result<Self, TransactionError> {
         db.with_connection(|conn, _statements| -> Result<(), TransactionError> {
             match conn.execute(if will_write {"BEGIN EXCLUSIVE TRANSACTION"}
                                else {"BEGIN TRANSACTION"}) {
@@ -51,7 +51,7 @@ impl<'t> Transaction<'t> {
 // XX do we actually really want to deref?
 
 impl<'t> Deref for Transaction<'t> {
-    type Target = Db;
+    type Target = DbConnection;
 
     fn deref(&self) -> &Self::Target {
         self.db
@@ -105,7 +105,7 @@ pub enum TransactError<E: Debug> {
 /// case retries will definitely happen when concurrent accesses
 /// happen.
 pub fn transact<F, R, E>(
-    db: &mut Db, will_write: bool, handler: F
+    db: &mut DbConnection, will_write: bool, handler: F
 ) -> Result<R, TransactError<E>>
 where F: Fn(&mut Transaction) -> Result<R, E>,
       E: Debug

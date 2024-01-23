@@ -31,14 +31,14 @@ pub struct Statements {
     // WARNING: don't forget to add new fields to Drop for Db !
 }
 
-pub struct Db {
+pub struct DbConnection {
     path: PathBuf,
     write_transaction_mutex: Mutex<()>,
     pub(crate) connection: Option<Pin<Box<Connection>>>,
     statements: Statements
 }
 
-impl Drop for Db {
+impl Drop for DbConnection {
     fn drop(&mut self) {
         macro_rules! drop {
             { $field:ident } => {
@@ -66,9 +66,9 @@ impl Drop for Db {
     }
 }
 
-impl Db {
+impl DbConnection {
     pub(crate) fn mynew(path: &str) -> Self {
-        Db {
+        DbConnection {
             path: path.into(),
             connection: None,
             statements: Statements {
