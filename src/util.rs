@@ -214,7 +214,7 @@ macro_rules! try_do {
 
 #[macro_export]
 macro_rules! try_result {
-    ( $($b:tt)* ) => ( (|| -> Result<_> { $($b)* })() )
+    ( $($b:tt)* ) => ( (|| -> Result<_, _> { $($b)* })() )
 }
 
 #[macro_export]

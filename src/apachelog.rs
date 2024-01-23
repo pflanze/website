@@ -118,7 +118,7 @@ fn write_panic_stderr(
         writeln!(&mut outp, "[panic] handling {:?} after {duration:?}",
                  request.request_line())?;
         outp.flush()?;
-        Ok(())
+        Ok::<(), std::io::Error>(())
     }.expect("stderr always writable");
 }
 
