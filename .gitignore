@@ -3,6 +3,6 @@ playground
 *.rlib
 accounts.db
 accounts.db.*
+accounts.db-*
 /.cargo/
-accounts.db-journal
 /target/

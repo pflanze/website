@@ -100,6 +100,8 @@ impl Db {
             if oc.is_none() {
                 let c = try_sqlite!(sqlite::open(&self.path));
                 // Configure the connection
+                try_sqlite!(c.execute("PRAGMA journal_mode = WAL"));
+                // try_sqlite!(c.execute("PRAGMA synchronous = NORMAL"));
                 try_sqlite!(c.execute("PRAGMA foreign_keys = ON"));
                 // Store it
                 *oc = Some(Box::pin(c));
