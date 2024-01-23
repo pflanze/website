@@ -113,7 +113,6 @@ pub fn transact<F, R, E>(
 where F: Fn(&mut Transaction) -> Result<R, E>,
       E: Debug
 {
-
     // Sleep with exponential backoff (XX: should perhaps use some randomization)
     let mut get_sleeptime = {
         let mut sleeptime: u32 = 500; // microseconds
@@ -142,19 +141,22 @@ where F: Fn(&mut Transaction) -> Result<R, E>,
             ( $errkind:expr, $errconstr:expr, $e:ident ) => {{
                 let sleeptime = get_sleeptime();
                 if sleeptime < max_sleeptime {
-                    warn!("transact: on attempt {attempt} got {} error: {:?}",
-                          $errkind, $e);
                     attempt += 1;
-                    time_guard!("transact sleep");
                     std::thread::sleep(Duration::from_micros(sleeptime as u64));
                 } else {
+                    warn!("transact: ran out of retries");
                     return Err($errconstr($e))
                 }
             }}
         }
         match r {
             Ok(r) => match r {
-                Ok(v) => return Ok(v),
+                Ok(v) => {
+                    if attempt > 1 {
+                        warn!("transact: succeeded on attempt {attempt}");
+                    }
+                    return Ok(v)
+                }
                 Err(e) => 
                     // Do we *have* to retry these, too? Yes.
                     retry!("handler", TransactError::HandlerError, e),
@@ -165,7 +167,7 @@ where F: Fn(&mut Transaction) -> Result<R, E>,
                         return Err(TransactError::TransactionError(e))
                     }
                 }
-                    
+
                 match &*e {
                     TransactionErrorKind::NotConnected => immediate!(),
                     TransactionErrorKind::InitError(_) => immediate!(),
