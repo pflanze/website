@@ -33,7 +33,6 @@ impl<'t> Transaction<'t> {
                 Err(e) => Err(TransactionErrorKind::BeginError(e))?
             }
         })?;
-        warn!("begun transaction");
         Ok(Self {
             db,
             is_committed: false
@@ -45,7 +44,6 @@ impl<'t> Transaction<'t> {
             || TransactionErrorKind::NotConnected)?;
         try_sqlite!(conn.execute("COMMIT TRANSACTION"));
         self.is_committed = true;
-        warn!("committed transaction");
         Ok(())
     }
 }
@@ -76,7 +74,6 @@ impl<'t> Drop for Transaction<'t> {
             if let Err(e) = conn.execute("ROLLBACK TRANSACTION") {
                 warn!("drop Transaction: ROLLBACK gave error: {e:?}");
             }
-            warn!("rolled back transaction");
         }
     }
 }
