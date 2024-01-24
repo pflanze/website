@@ -28,6 +28,7 @@ pub mod auri;
 pub mod alist;
 pub mod rouille_util;
 pub mod str_util;
+pub mod lang;
 pub mod style {
     pub mod footnotes;
 }
