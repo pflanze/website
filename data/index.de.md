@@ -1,6 +1,6 @@
 # Christian Jaeger
 
-<img class="floating_right" src="static/Portrait.webp" title="Portrait">
+<img class="floating_right" src="/static/Portrait.webp" title="Portrait">
 
 ## Freischaffender Softwareentwickler
 
@@ -20,6 +20,6 @@ Ich habe Erfahrung im Mentoring von Entwicklern.
 
 <!-- I have a background in Environmental Sciences, see [Climate & Environment](climate.html). -->
 
-[Kontaktieren Sie mich](/kontakt.html) wenn Sie ein potentielles
+[Kontaktieren Sie mich](kontakt.html) wenn Sie ein potentielles
 Projekt mit mir besprechen möchten.
 

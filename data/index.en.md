@@ -1,6 +1,6 @@
 # Christian Jaeger
 
-<img class="floating_right" src="static/Portrait.webp" title="Portrait">
+<img class="floating_right" src="/static/Portrait.webp" title="Portrait">
 
 ## I'm a Software Developer for hire
 
@@ -20,4 +20,4 @@ I have experience mentoring developers.
 
 <!-- I have a background in Environmental Sciences, see [Climate & Environment](climate.html). -->
 
-[Contact me](/contact.html) if you'd like to discuss a potential project.
+[Contact me](contact.html) if you'd like to discuss a potential project.
