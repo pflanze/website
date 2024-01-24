@@ -20,7 +20,7 @@ pub struct ARequest<'r, 's, 'h> {
     method: HttpRequestMethod,
     request: &'r Request,
     session: &'r Session<'s>,
-    /// A `blake3::Hasher` that has already been filled with some secret data.
+    // A `blake3::Hasher` that has already been filled with some secret data.
     sessionid_hasher: &'h Hasher,
 }
 
