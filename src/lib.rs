@@ -25,6 +25,7 @@ pub mod aresponse;
 pub mod ipaddr_util;
 pub mod sqlite_util;
 pub mod auri;
+pub mod alist;
 pub mod style {
     pub mod footnotes;
 }
