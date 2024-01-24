@@ -13,6 +13,7 @@ use website::hostrouter::{HostRouter, HostsRouter};
 use website::http_response_status_codes::HttpResponseStatusCode;
 use website::imageinfo::static_img;
 use website::io_util::my_read_to_string;
+use website::lang::Lang;
 use website::style::footnotes::{WikipediaStyle, BlogStyle};
 use website::handler::{ExactFnHandler, RedirectHandler};
 use website::handler::FileHandler;
@@ -22,42 +23,74 @@ use rouille::Server;
 use website::nav::{Nav, NavEntry, SubEntries};
 use website::router::MultiRouter;
 use website::util::{log_basedir, getenv_or, getenv, xgetenv};
-use website::webparts::{markdownpage_handler, blog_handler, server_handler, login_handler, Restricted, markdowndir_handler};
+use website::webparts::{markdownpage_handler, blog_handler, server_handler,
+                        login_handler, Restricted, markdowndir_handler};
 use website::website_layout::WebsiteLayout;
 use website::handler::Handler;
 use website::{website_benchmark, warn};
 
-const NAV: Nav = Nav(&[
-    NavEntry {
-        name: "Home",
-        path: "/",
-        subentries: SubEntries::Static(&[]),
-    },
-    NavEntry {
-        name: "Climate & Environment",
-        path: "/climate.html",
-        subentries: SubEntries::Static(&[]),
-    },
-    NavEntry {
-        name: "Projects",
-        path: "/projects.html",
-        subentries: SubEntries::Static(&[]),
-    },
-    NavEntry {
-        name: "Contact",
-        path: "/contact.html",
-        subentries: SubEntries::Static(&[]),
-    },
-    // NavEntry {
-    //     name: "Blog",
-    //     path: "/blog/",
-    //     // subentries: SubEntries::MdDir("blog"), Don't be crazy? This
-    //     // is just the menu, btw. See `struct Blog` below for the
-    //     // 'real thing'. XX
-    //     subentries: SubEntries::Static(&[]),
-    // },
-]);
-
+const NAV: &[(Lang, Nav)] = &[
+    (Lang::En, Nav(&[
+        NavEntry {
+            name: "Home",
+            path: "/en/",
+            subentries: SubEntries::Static(&[]),
+        },
+        NavEntry {
+            name: "Climate & Environment",
+            path: "/en/climate.html",
+            subentries: SubEntries::Static(&[]),
+        },
+        NavEntry {
+            name: "Projects",
+            path: "/en/projects.html",
+            subentries: SubEntries::Static(&[]),
+        },
+        NavEntry {
+            name: "Contact",
+            path: "/en/contact.html",
+            subentries: SubEntries::Static(&[]),
+        },
+        // NavEntry {
+        //     name: "Blog",
+        //     path: "/blog/",
+        //     // subentries: SubEntries::MdDir("blog"), Don't be crazy? This
+        //     // is just the menu, btw. See `struct Blog` below for the
+        //     // 'real thing'. XX
+        //     subentries: SubEntries::Static(&[]),
+        // },
+    ])),
+    (Lang::De, Nav(&[
+        NavEntry {
+            name: "Willkommen",
+            path: "/de/",
+            subentries: SubEntries::Static(&[]),
+        },
+        NavEntry {
+            name: "Klima & Umwelt",
+            path: "/de/umwelt.html",
+            subentries: SubEntries::Static(&[]),
+        },
+        NavEntry {
+            name: "Projekte",
+            path: "/de/projekte.html",
+            subentries: SubEntries::Static(&[]),
+        },
+        NavEntry {
+            name: "Kontakt",
+            path: "/de/kontakt.html",
+            subentries: SubEntries::Static(&[]),
+        },
+        // NavEntry {
+        //     name: "Blog",
+        //     path: "/blog/",
+        //     // subentries: SubEntries::MdDir("blog"), Don't be crazy? This
+        //     // is just the menu, btw. See `struct Blog` below for the
+        //     // 'real thing'. XX
+        //     subentries: SubEntries::Static(&[]),
+        // },
+    ])),
+];
 
 // -----------------------------------------------------------------------------
 // Main
@@ -119,7 +152,7 @@ fn main() -> Result<()> {
             let in_datadir = in_datadir.clone();
             move |html: &HtmlAllocator| -> Result<Flat<Node>> {
                 Ok(Flat::One(
-                    html.a([att("href", "/")], // XX problem with bilingual!
+                    html.a([att("href", "/")], // i18n: just redirect again, OK?
                            [static_img(html,
                                        &in_datadir("static/headerbg2.jpg"),
                                        "/static/headerbg2.jpg",
@@ -134,10 +167,19 @@ fn main() -> Result<()> {
     router
         .add("/login", login_handler(style.clone()))
         .add("/bench", Arc::new(ExactFnHandler(website_benchmark::benchmark)))
-        .add("/", markdownpage_handler(&in_datadir("index.md"), style.clone()))
-        .add("/climate.html", markdownpage_handler(&in_datadir("climate.md"), style.clone()))
-        .add("/projects.html", markdownpage_handler(&in_datadir("projects.md"), style.clone()))
-        .add("/contact.html", markdownpage_handler(&in_datadir("contact.md"), style.clone()))
+        .add("/", markdownpage_handler(&in_datadir("index.de.md"), style.clone())) // XXX redir
+    // --------------------------------------------
+    // XX horrible hack, make a dir lister; also redirector for dir; and for non-language urls (ok that one will be above)
+        .add("/en/", markdownpage_handler(&in_datadir("index.en.md"), style.clone()))
+        .add("/en/climate.html", markdownpage_handler(&in_datadir("climate.en-umwelt.md"), style.clone()))
+        .add("/en/projects.html", markdownpage_handler(&in_datadir("projects.en-projekte.md"), style.clone()))
+        .add("/en/contact.html", markdownpage_handler(&in_datadir("contact.en-kontakt.md"), style.clone()))
+
+        .add("/de/", markdownpage_handler(&in_datadir("index.de.md"), style.clone()))
+        .add("/de/umwelt.html", markdownpage_handler(&in_datadir("umwelt.de-climate.md"), style.clone()))
+        .add("/de/projekte.html", markdownpage_handler(&in_datadir("projekte.de-projects.md"), style.clone()))
+        .add("/de/kontakt.html", markdownpage_handler(&in_datadir("kontakt.de-contact.md"), style.clone()))
+    // --------------------------------------------
         .add("/static", Arc::new(FileHandler::new(in_datadir("static"))))
         .add("/blog", blog_handler(
             Blog::open(in_datadir("blog"), &ALLOCPOOL, footnotestyle.clone())?,

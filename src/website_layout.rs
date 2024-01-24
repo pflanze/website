@@ -10,7 +10,7 @@ use crate::{webparts::LayoutInterface,
             ahtml::{HtmlAllocator, AId, Node, Flat, ToASlice, att},
             nav::{Nav, ToHtml},
             time_util::LocalYear,
-            warn};
+            warn, lang::Lang, alist::AList};
 
 fn year_range(from: i32, to: i32) -> String {
     if from == to {
@@ -23,7 +23,7 @@ fn year_range(from: i32, to: i32) -> String {
 pub struct WebsiteLayout {
     pub site_name: &'static str,
     pub copyright_owner: &'static str,
-    pub nav: &'static Nav<'static>,
+    pub nav: &'static [(Lang, Nav<'static>)],
     pub header_contents: Box<dyn Fn(&HtmlAllocator) -> Result<Flat<Node>> + Send + Sync>,
 }
 
@@ -62,6 +62,14 @@ impl LayoutInterface for WebsiteLayout {
                 breadcrumb
             } else {
                 html.div([att("class", "no_breadcrumb")], [])?
+            };
+
+        let lang: Lang = request.lang();
+        let nav_html =
+            if let Some(nav) = AList(self.nav).get(&lang) {
+                nav.to_html(&html, &request)?
+            } else {
+                html.empty_node()?
             };
 
         html.html(
@@ -109,7 +117,7 @@ impl LayoutInterface for WebsiteLayout {
                                 html.div(
                                     [att("class", "navigation")],
                                     [
-                                        self.nav.to_html(&html, &request)?,
+                                        nav_html,
                                         breadcrumb,
                                     ])?,
                                 // Document
