@@ -27,6 +27,7 @@ pub mod sqlite_util;
 pub mod auri;
 pub mod alist;
 pub mod rouille_util;
+pub mod str_util;
 pub mod style {
     pub mod footnotes;
 }
