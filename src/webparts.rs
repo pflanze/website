@@ -35,7 +35,7 @@ use crate::{arequest::ARequest,
             time_util::{self, now_unixtime},
             ipaddr_util::IpAddrOctets,
             auri::{AUriLocal, QueryString},
-            notime, path::{path_append, extension_eq, base}};
+            notime, path::{path_append, extension_eq, base}, lang::Lang};
 use crate::{try_result, warn, nodt, time_guard};
 
 // ------------------------------------------------------------------
@@ -48,6 +48,7 @@ pub fn server_handler<'t>(
     allocatorpool: &'static AllocatorPool,
     threadpool: Arc<Pool>,
     sessionid_hasher: Hasher,
+    lang_from_path: impl Fn(&PPath<KString>) -> Option<Lang> + Send + Sync,
 ) -> impl for<'r> Fn(&'r Request) -> Response {
     move |request: &Request| -> Response {
         time_guard!("server_handler"); // timings including infrastructure cost
@@ -111,7 +112,8 @@ pub fn server_handler<'t>(
                                 .into()))
                         })
                 };
-                match ARequest::new(request, &listen_addr, session, &sessionid_hasher) {
+                match ARequest::new(request, &listen_addr, session, &sessionid_hasher,
+                                    &lang_from_path) {
                     Ok(request) => okhandler(request),
                     Err(e) => {
                         warn!("{e}");

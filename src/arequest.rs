@@ -68,10 +68,13 @@ pub struct ARequest<'r, 's, 'h> {
 }
 
 impl<'r, 's, 'h> ARequest<'r, 's, 'h> {
-    pub fn new(
+    pub fn new<F>(
         request: &'r Request, listen_addr: &'r str, session: &'r Session<'s>,
         sessionid_hasher: &'h Hasher,
-    ) -> Result<Self> {
+        lang_from_path: &F,
+    ) -> Result<Self>
+    where F: Fn(&PPath<KString>) -> Option<Lang> + Send + Sync
+    {
         let path_original = request.url(); // path only
         let path: PPath<KString> = PPath::from_str(&path_original);
         let path_string = path.to_string();
@@ -79,7 +82,7 @@ impl<'r, 's, 'h> ARequest<'r, 's, 'h> {
         let method = HttpRequestMethod::from_str(request.method())?;
         let lang_cookie = get_cookie(request, LangKey.as_str()).map(KString::from_ref);
         let lang: Option<Lang> =
-            path.segments().get(0).and_then(|s| Lang::maybe_from(s.as_str()))
+            lang_from_path(&path)
             .or_else(|| lang_cookie.as_ref().and_then(|s| Lang::maybe_from(s.as_str())))
             .or_else(|| request.header("Accept-Language").and_then(|s| {
                 let ss = Lang::strs();

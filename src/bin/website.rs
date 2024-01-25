@@ -1,9 +1,11 @@
 use std::sync::Arc;
 use std::thread;
 use blake3::Hasher;
+use kstring::KString;
 use scoped_thread_pool;
 use website::access_control::db::access_control_transaction;
 use website::access_control::statements_and_methods::DO_WARN_THREAD;
+use website::alist::AList;
 use website::apachelog::Logs;
 use website::arequest::ARequest;
 use website::blog::Blog;
@@ -14,6 +16,8 @@ use website::http_response_status_codes::HttpResponseStatusCode;
 use website::imageinfo::static_img;
 use website::io_util::my_read_to_string;
 use website::lang::Lang;
+use website::path::base_and_suffix;
+use website::ppath::PPath;
 use website::style::footnotes::{WikipediaStyle, BlogStyle};
 use website::handler::{ExactFnHandler, RedirectHandler};
 use website::handler::FileHandler;
@@ -29,26 +33,38 @@ use website::website_layout::WebsiteLayout;
 use website::handler::Handler;
 use website::{website_benchmark, warn};
 
+// HACK for now
+const LANG_FROM_PATH: &[(&str, Lang)] = &[
+    ("en", Lang::En),
+    ("climate", Lang::En),
+    ("contact", Lang::En),
+    ("projects", Lang::En),
+    ("de", Lang::De),
+    ("umwelt", Lang::De),
+    ("projekte", Lang::De),
+    ("kontakt", Lang::De),
+];
+
 const NAV: &[(Lang, Nav)] = &[
     (Lang::En, Nav(&[
         NavEntry {
             name: "Home",
-            path: "/en/",
+            path: "/en.html",
             subentries: SubEntries::Static(&[]),
         },
         NavEntry {
             name: "Climate & Environment",
-            path: "/en/climate.html",
+            path: "/climate.html",
             subentries: SubEntries::Static(&[]),
         },
         NavEntry {
             name: "Projects",
-            path: "/en/projects.html",
+            path: "/projects.html",
             subentries: SubEntries::Static(&[]),
         },
         NavEntry {
             name: "Contact",
-            path: "/en/contact.html",
+            path: "/contact.html",
             subentries: SubEntries::Static(&[]),
         },
         // NavEntry {
@@ -63,22 +79,22 @@ const NAV: &[(Lang, Nav)] = &[
     (Lang::De, Nav(&[
         NavEntry {
             name: "Willkommen",
-            path: "/de/",
+            path: "/de.html",
             subentries: SubEntries::Static(&[]),
         },
         NavEntry {
             name: "Klima & Umwelt",
-            path: "/de/umwelt.html",
+            path: "/umwelt.html",
             subentries: SubEntries::Static(&[]),
         },
         NavEntry {
             name: "Projekte",
-            path: "/de/projekte.html",
+            path: "/projekte.html",
             subentries: SubEntries::Static(&[]),
         },
         NavEntry {
             name: "Kontakt",
-            path: "/de/kontakt.html",
+            path: "/kontakt.html",
             subentries: SubEntries::Static(&[]),
         },
         // NavEntry {
@@ -103,6 +119,13 @@ lazy_static!{
 struct Tlskeys {
     crt: Vec<u8>,
     key: Vec<u8>,
+}
+
+fn lang_from_path(path: &PPath<KString>) -> Option<Lang> {
+    // funny, can just take the first segment
+    let p0 = path.segments().get(0)?;
+    let base = base_and_suffix(&**p0)?.0;
+    AList(LANG_FROM_PATH).get(&base).cloned()
 }
 
 fn main() -> Result<()> {
@@ -167,18 +190,18 @@ fn main() -> Result<()> {
     router
         .add("/login", login_handler(style.clone()))
         .add("/bench", Arc::new(ExactFnHandler(website_benchmark::benchmark)))
-        .add("/", markdownpage_handler(&in_datadir("index.de.md"), style.clone())) // XXX redir
+        .add("/", markdownpage_handler(&in_datadir("de.de-en.md"), style.clone())) // XXX redir
     // --------------------------------------------
     // XX horrible hack, make a dir lister; also redirector for dir; and for non-language urls (ok that one will be above)
-        .add("/en/", markdownpage_handler(&in_datadir("index.en.md"), style.clone()))
-        .add("/en/climate.html", markdownpage_handler(&in_datadir("climate.en-umwelt.md"), style.clone()))
-        .add("/en/projects.html", markdownpage_handler(&in_datadir("projects.en-projekte.md"), style.clone()))
-        .add("/en/contact.html", markdownpage_handler(&in_datadir("contact.en-kontakt.md"), style.clone()))
+        .add("/en.html", markdownpage_handler(&in_datadir("en.en-de.md"), style.clone()))
+        .add("/climate.html", markdownpage_handler(&in_datadir("climate.en-umwelt.md"), style.clone()))
+        .add("/projects.html", markdownpage_handler(&in_datadir("projects.en-projekte.md"), style.clone()))
+        .add("/contact.html", markdownpage_handler(&in_datadir("contact.en-kontakt.md"), style.clone()))
 
-        .add("/de/", markdownpage_handler(&in_datadir("index.de.md"), style.clone()))
-        .add("/de/umwelt.html", markdownpage_handler(&in_datadir("umwelt.de-climate.md"), style.clone()))
-        .add("/de/projekte.html", markdownpage_handler(&in_datadir("projekte.de-projects.md"), style.clone()))
-        .add("/de/kontakt.html", markdownpage_handler(&in_datadir("kontakt.de-contact.md"), style.clone()))
+        .add("/de.html", markdownpage_handler(&in_datadir("de.de-en.md"), style.clone()))
+        .add("/umwelt.html", markdownpage_handler(&in_datadir("umwelt.de-climate.md"), style.clone()))
+        .add("/projekte.html", markdownpage_handler(&in_datadir("projekte.de-projects.md"), style.clone()))
+        .add("/kontakt.html", markdownpage_handler(&in_datadir("kontakt.de-contact.md"), style.clone()))
     // --------------------------------------------
         .add("/static", Arc::new(FileHandler::new(in_datadir("static"))))
         .add("/blog", blog_handler(
@@ -310,6 +333,7 @@ fn main() -> Result<()> {
                     &ALLOCPOOL,
                     workerthreadpool,
                     sessionid_hasher,
+                    lang_from_path,
                 )));
         }
     })?;
@@ -329,6 +353,7 @@ fn main() -> Result<()> {
                         &ALLOCPOOL,
                         workerthreadpool,
                         sessionid_hasher,
+                        lang_from_path,
                     ),
                     tlskeys.crt,
                     tlskeys.key));
@@ -343,6 +368,7 @@ fn main() -> Result<()> {
                             &ALLOCPOOL,
                             workerthreadpool,
                             sessionid_hasher,
+                            lang_from_path,
                         )));
                 } else {
                     warn!("don't have keys, thus not running the HTTPS service!");
