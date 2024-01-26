@@ -28,7 +28,7 @@ use website::nav::{Nav, NavEntry, SubEntries};
 use website::router::MultiRouter;
 use website::util::{log_basedir, getenv_or, getenv, xgetenv};
 use website::webparts::{markdownpage_handler, blog_handler, server_handler,
-                        login_handler, Restricted, markdowndir_handler};
+                        login_handler, Restricted, markdowndir_handler, language_handler};
 use website::website_layout::WebsiteLayout;
 use website::handler::Handler;
 use website::{website_benchmark, warn};
@@ -265,7 +265,7 @@ fn main() -> Result<()> {
     router
         .add("/login", login_handler(style.clone()))
         .add("/bench", Arc::new(ExactFnHandler::new(website_benchmark::benchmark)))
-        .add("/", markdownpage_handler(&in_datadir("de.de-en.md"), style.clone())) // XXX redir
+        .add("/", language_handler())
     // --------------------------------------------
     // XX horrible hack, make a dir lister; also redirector for dir; and for non-language urls (ok that one will be above)
         .add("/en.html", markdownpage_handler(&in_datadir("en.en-de.md"), style.clone()))

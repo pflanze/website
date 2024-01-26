@@ -785,3 +785,22 @@ impl<L: Language + 'static> Restricted<L> for Arc<dyn Handler<L>> {
         }))
     }
 }
+
+
+/// To be instantiated for `/` (or similar?), will redirect to
+/// e.g. `/en.html` using the lang from the current `ARequest`.
+pub fn language_handler<L: Language + 'static>(
+) -> Arc<dyn Handler<L>> {
+    Arc::new(ExactFnHandler::new(    
+        move |
+        request: &ARequest<L>,
+        _method: HttpRequestMethodSimple,
+        _html: &HtmlAllocator
+            | -> Result<AResponse>
+        {
+            let lang = request.lang();
+            // XX hack, must read query string from request, too?
+            let target = format!("/{}.html", lang.as_str());
+            Ok(Response::redirect_302(target).into())
+        }))
+}
