@@ -23,6 +23,16 @@ fn year_range(from: i32, to: i32) -> String {
     }
 }
 
+const LAST_MODIFIED_FOR: &[(&str, &str)] = &[
+    ("en", "Last modified"),
+    ("de", "Letzte Modifikation"),
+];
+
+fn last_modified_for(lang: &str) -> &'static str {
+    AList(LAST_MODIFIED_FOR).get(&lang).unwrap_or_else(
+        || AList(LAST_MODIFIED_FOR).get(&"en").expect("en is always present in translations"))
+}
+
 pub struct WebsiteLayout<L: Language + 'static> {
     pub site_name: &'static str,
     pub copyright_owner: &'static str,
@@ -192,7 +202,8 @@ impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
                                             html.div(
                                                 [att("class", "last_modified")],
                                                 [html.string(
-                                                    format!("Last modified {}",
+                                                    format!("{} {}",
+                                                            last_modified_for(request.lang().as_str()),
                                                             fmt_http_date(last_modified)))?])?
                                         } else {
                                             html.empty_node()?
