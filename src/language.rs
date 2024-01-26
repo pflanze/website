@@ -11,6 +11,14 @@ pub trait Language: Clone + Copy + PartialEq + Eq + Default + Send + Sync {
         Self::maybe_from(start)
     }
 
+    /// 2-letter lower-case language code.
+    fn as_str(self) -> &'static str;
+
+    /// In the order in which they should be listed in the language
+    /// switcher.
+    fn members() -> &'static [Self];
+
+    // XX generate from members?
     fn strs() -> &'static [&'static str];
 }
 
