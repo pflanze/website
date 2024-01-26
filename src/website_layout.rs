@@ -12,7 +12,8 @@ use crate::{webparts::LayoutInterface,
             time_util::LocalYear,
             warn,
             language::Language,
-            alist::AList};
+            alist::AList,
+            ppath::PPath};
 
 fn year_range(from: i32, to: i32) -> String {
     if from == to {
@@ -27,6 +28,7 @@ pub struct WebsiteLayout<L: Language + 'static> {
     pub copyright_owner: &'static str,
     pub nav: &'static [(L, Nav<'static>)],
     pub header_contents: Box<dyn Fn(&HtmlAllocator) -> Result<Flat<Node>> + Send + Sync>,
+    pub sibling_from_path: Box<dyn Fn(&PPath<KString>) -> Option<String> + Send + Sync>,
 }
 
 impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
@@ -73,7 +75,34 @@ impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
             } else {
                 html.empty_node()?
             };
-
+        let langswitcher_html = {
+            let mut items = html.new_vec_with_capacity(L::strs().len() as u32)?;
+            for l in L::members() {
+                let s = html.string(l.as_str().to_uppercase())?;
+                let path = request.path();
+                let sibling_url = (self.sibling_from_path)(path); // Hack
+                items.push(html.li(
+                    [],
+                    [
+                        if *l == lang {
+                            s
+                        } else {
+                            if let Some(sibling_url) = sibling_url {
+                                html.a(
+                                    [att("href", sibling_url)],
+                                    [s])?
+                            } else {
+                                warn!("missing sibling page for {path:?} for lang {:?}",
+                                      lang.as_str());
+                                s
+                            }
+                        }
+                    ])?)?
+            }
+            html.ul([att("class", "langs")],
+                    items.as_slice())?
+        };
+        
         html.html(
             [],
             [
@@ -119,7 +148,12 @@ impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
                                 html.div(
                                     [att("class", "navigation")],
                                     [
-                                        nav_html,
+                                        html.div(
+                                            [att("class", "navrow")],
+                                            [
+                                                nav_html,
+                                                langswitcher_html
+                                            ])?,
                                         breadcrumb,
                                     ])?,
                                 // Document

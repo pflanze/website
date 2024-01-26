@@ -53,6 +53,17 @@ impl Language for Lang {
         }
     }
 
+    fn as_str(self) -> &'static str {
+        match self {
+            Lang::En => "en",
+            Lang::De => "de",
+        }
+    }
+
+    fn members() -> &'static [Self] {
+        &[Lang::En, Lang::De]
+    }
+
     fn strs() -> &'static [&'static str] {
         &["en", "de"]
     }
@@ -88,15 +99,16 @@ mod tests {
 // ------------------------------------------------------------------
 
 // HACK for now
-const LANG_FROM_PATH: &[(&str, Lang)] = &[
-    ("en", Lang::En),
-    ("climate", Lang::En),
-    ("contact", Lang::En),
-    ("projects", Lang::En),
-    ("de", Lang::De),
-    ("umwelt", Lang::De),
-    ("projekte", Lang::De),
-    ("kontakt", Lang::De),
+const LANG_FROM_PATH: &[(&str, (Lang, &str))] = &[
+    // basename, is lang, has sibling
+    ("en", (Lang::En, "de")),
+    ("climate", (Lang::En, "umwelt")),
+    ("contact", (Lang::En, "kontakt")),
+    ("projects", (Lang::En, "projekte")),
+    ("de", (Lang::De, "en")),
+    ("umwelt", (Lang::De, "climate")),
+    ("projekte", (Lang::De, "projects")),
+    ("kontakt", (Lang::De, "contact")),
 ];
 
 const NAV: &[(Lang, Nav)] = &[
@@ -179,7 +191,15 @@ fn lang_from_path(path: &PPath<KString>) -> Option<Lang> {
     // funny, can just take the first segment
     let p0 = path.segments().get(0)?;
     let base = base_and_suffix(&**p0)?.0;
-    AList(LANG_FROM_PATH).get(&base).cloned()
+    AList(LANG_FROM_PATH).get(&base).map(|(l, _)| *l)
+}
+
+fn sibling_from_path(path: &PPath<KString>) -> Option<String> {
+    // funny, can just take the first segment
+    let p0 = path.segments().get(0)?;
+    let base = base_and_suffix(&**p0)?.0;
+    let (_, sibling) = AList(LANG_FROM_PATH).get(&base)?;
+    Some(format!("{sibling}.html"))
 }
 
 fn main() -> Result<()> {
@@ -236,6 +256,7 @@ fn main() -> Result<()> {
                                        "",
                                        Some("headerpic"))?])?))
             }}),
+        sibling_from_path: Box::new(sibling_from_path),
     });
     let preview_groupid = access_control_transaction(false, |trans| -> Result<_> {
         Ok(trans.xget_group_by_groupname("preview")?.id.expect("present from db"))
