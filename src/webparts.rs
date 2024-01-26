@@ -35,20 +35,20 @@ use crate::{arequest::ARequest,
             time_util::{self, now_unixtime},
             ipaddr_util::IpAddrOctets,
             auri::{AUriLocal, QueryString},
-            notime, path::{path_append, extension_eq, base}, lang::Lang};
+            notime, path::{path_append, extension_eq, base}, language::Language};
 use crate::{try_result, warn, nodt, time_guard};
 
 // ------------------------------------------------------------------
 // The mid-level parts
 
 /// Make a handler for Rouille's `start_server` procedure.
-pub fn server_handler<'t>(
+pub fn server_handler<'t, L: Language + Default>(
     listen_addr: String,
-    hostsrouter: Arc<HostsRouter>,
+    hostsrouter: Arc<HostsRouter<L>>,
     allocatorpool: &'static AllocatorPool,
     threadpool: Arc<Pool>,
     sessionid_hasher: Hasher,
-    lang_from_path: impl Fn(&PPath<KString>) -> Option<Lang> + Send + Sync,
+    lang_from_path: impl Fn(&PPath<KString>) -> Option<L> + Send + Sync,
 ) -> impl for<'r> Fn(&'r Request) -> Response {
     move |request: &Request| -> Response {
         time_guard!("server_handler"); // timings including infrastructure cost
@@ -194,10 +194,10 @@ pub fn popup_box<'a>(
     }
 }
 
-pub fn show_popup_box_page(
-    request: &ARequest,
+pub fn show_popup_box_page<L: Language>(
+    request: &ARequest<L>,
     html: &HtmlAllocator,
-    style: &Arc<dyn LayoutInterface>,
+    style: &Arc<dyn LayoutInterface<L>>,
     box_kind: PopupBoxKind,
     box_title: AId<Node>,
     box_body: AId<Node>,
@@ -229,11 +229,11 @@ pub fn show_popup_box_page(
 // ------------------------------------------------------------------
 // The higher-level parts, building blocks
 
-pub trait LayoutInterface: Send + Sync {
+pub trait LayoutInterface<L: Language>: Send + Sync {
     /// Build a whole HTML page from the given parts
     fn page(
         &self,
-        request: &ARequest,
+        request: &ARequest<L>,
         html: &HtmlAllocator,
         // Can't be preserialized HTML, must be string node. If
         // missing, a default title should be used (usually the site
@@ -258,9 +258,9 @@ pub trait LayoutInterface: Send + Sync {
 }
 
 /// This re-parses the markdown on every request.
-fn markdownprocessor(
-    style: Arc<dyn LayoutInterface>,
-    request: &ARequest,
+fn markdownprocessor<L: Language>(
+    style: Arc<dyn LayoutInterface<L>>,
+    request: &ARequest<L>,
     path: PathBuf,
     html: &HtmlAllocator    
 ) -> Result<Response>
@@ -295,15 +295,15 @@ fn markdownprocessor(
 }
 
 // To place a particular md file via its fspath.
-pub fn markdownpage_handler(
+pub fn markdownpage_handler<L: Language + 'static>(
     file_path: &str,
-    style: Arc<dyn LayoutInterface>
-) -> Arc<dyn Handler>
+    style: Arc<dyn LayoutInterface<L>>
+) -> Arc<dyn Handler<L>>
 {
     let path = PathBuf::from(file_path);
-    Arc::new(ExactFnHandler(
+    Arc::new(ExactFnHandler::new(
         move |
-        request: &ARequest, method: HttpRequestMethodSimple, html: &HtmlAllocator
+        request: &ARequest<L>, method: HttpRequestMethodSimple, html: &HtmlAllocator
             | -> Result<AResponse>
         {
             if method.is_post() {
@@ -327,15 +327,15 @@ pub fn markdownpage_handler(
 // thus suitable to host unlisted files only meant to be reachable via
 // an explicitly shared URL. You still need to choose sufficiently
 // random sub-paths for them to evade brute forcing!
-pub fn markdowndir_handler(
+pub fn markdowndir_handler<L: Language + 'static>(
     dir_path: &str,
-    style: Arc<dyn LayoutInterface>
-) -> Arc<dyn Handler>
+    style: Arc<dyn LayoutInterface<L>>
+) -> Arc<dyn Handler<L>>
 {
     let path = PathBuf::from(dir_path);
-    Arc::new(FnHandler(
+    Arc::new(FnHandler::new(
         move |
-        request: &ARequest,
+        request: &ARequest<L>,
         method: HttpRequestMethodSimple,
         path_rest: &PPath<KString>,
         html: &HtmlAllocator
@@ -402,12 +402,14 @@ fn format_naivedate(nd: NaiveDate) -> String {
     format!("{}", nd)
 }
 
-pub fn blog_handler(blog: Arc<Blog>, style: Arc<dyn LayoutInterface>) -> Arc<dyn Handler>
+pub fn blog_handler<L: Language + 'static>(
+    blog: Arc<Blog>, style: Arc<dyn LayoutInterface<L>>
+) -> Arc<dyn Handler<L>>
 {
     // dbg!(&blog.blogcache());
-    Arc::new(FnHandler(
+    Arc::new(FnHandler::new(
         move |
-        request: &ARequest,
+        request: &ARequest<L>,
         method: HttpRequestMethodSimple,
         path: &PPath<KString>,
         html: &HtmlAllocator
@@ -541,10 +543,10 @@ pub fn blog_handler(blog: Arc<Blog>, style: Arc<dyn LayoutInterface>) -> Arc<dyn
         }))
 }
 
-fn show_login_form(
-    request: &ARequest,
+fn show_login_form<L: Language>(
+    request: &ARequest<L>,
     html: &HtmlAllocator,
-    style: &Arc<dyn LayoutInterface>,
+    style: &Arc<dyn LayoutInterface<L>>,
     error: Option<String>,
     username: Option<String>,
     return_path: Option<String>,
@@ -588,12 +590,12 @@ fn show_login_form(
                         form)
 }
 
-pub fn login_handler(
-    style: Arc<dyn LayoutInterface>
-) -> Arc<dyn Handler> {
-    Arc::new(FnHandler(
+pub fn login_handler<L: Language + 'static>(
+    style: Arc<dyn LayoutInterface<L>>
+) -> Arc<dyn Handler<L>> {
+    Arc::new(FnHandler::new(
         move |
-        request: &ARequest,
+        request: &ARequest<L>,
         method: HttpRequestMethodSimple,
         _path: &PPath<KString>,
         html: &HtmlAllocator
@@ -722,11 +724,11 @@ pub fn login_handler(
 
 /// Tie via GroupId: requires that Ids are never re-used in the
 /// database! XX double-check sqlite.
-pub trait Restricted {
+pub trait Restricted<L: Language> {
     fn restricted_to_group(
         self,
         group: GroupId,
-        style: Arc<dyn LayoutInterface>,
+        style: Arc<dyn LayoutInterface<L>>,
     ) -> Self;
 }
 
@@ -736,13 +738,13 @@ enum LoginState {
     Allowed
 }
 
-impl Restricted for Arc<dyn Handler> {
+impl<L: Language + 'static> Restricted<L> for Arc<dyn Handler<L>> {
     fn restricted_to_group(
         self,
         group_id: GroupId,
-        style: Arc<dyn LayoutInterface>,
+        style: Arc<dyn LayoutInterface<L>>,
     ) -> Self {
-        Arc::new(FnHandler(move |request, method, path, html| -> Result<Option<AResponse>> {
+        Arc::new(FnHandler::new(move |request, method, path, html| -> Result<Option<AResponse>> {
             let session = request.session();
             // if ! session.client_has_sid() {
             //     todo!()

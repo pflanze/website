@@ -4,6 +4,7 @@ use rouille::{Response, ResponseBody};
 use crate::arequest::ARequest;
 use crate::http_response_status_codes::HttpResponseStatusCode;
 use crate::ahtml::{Node, AId, HtmlAllocator};
+use crate::language::Language;
 use crate::ppath::PPath;
 use crate::random_util::randomidstring;
 use crate::{nopp as pp, nodt as dt, warn};
@@ -74,7 +75,9 @@ pub fn htmlresponse(
 /// relative position `foo/bar` as url `blog/foo/bar`. (HACK? to avoid
 /// having to pass up the ancestor parts of paths as they are being
 /// resolved in router lookups.)  XX why this here and not just have a method?
-pub fn request_resolve_relative(request: &ARequest, position: PPath<&str>) -> String {
+pub fn request_resolve_relative<L: Language>(
+    request: &ARequest<L>, position: PPath<&str>
+) -> String {
     assert!(!position.is_absolute());
     let requestpath = request.path(); // path only
     dt!("request_resolve_relative", requestpath, position);

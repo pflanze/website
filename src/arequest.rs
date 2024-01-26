@@ -7,7 +7,9 @@ use kstring::KString;
 use rouille::{Request, HeadersIter, session::Session, input::priority_header_preferred};
 
 use crate::{ppath::PPath,
-            http_request_method::HttpRequestMethod, rouille_util::get_cookie, lang::Lang};
+            http_request_method::HttpRequestMethod,
+            rouille_util::get_cookie,
+            language::Language};
 
 
 pub trait CookieKey {
@@ -50,7 +52,7 @@ impl CookieKey for LangKey {
 }
 
 /// todo: rename to AContext, it has more than request data now.
-pub struct ARequest<'r, 's, 'h> {
+pub struct ARequest<'r, 's, 'h, L: Language> {
     // Fallback for host(): what this server listens on; ip:port or
     // domain:port or whatever is deemed suitable
     listen_addr: &'r str, // ref might be valid for longer but we don't guarantee it
@@ -61,19 +63,19 @@ pub struct ARequest<'r, 's, 'h> {
     method: HttpRequestMethod,
     request: &'r Request,
     session: &'r Session<'s>,
-    lang: Option<Lang>,
+    lang: Option<L>,
     lang_cookie: Cookie<LangKey>, // mostly just for the out bit; `lang` holds the real thing
     // A `blake3::Hasher` that has already been filled with some secret data.
     sessionid_hasher: &'h Hasher,
 }
 
-impl<'r, 's, 'h> ARequest<'r, 's, 'h> {
+impl<'r, 's, 'h, L: Language + Default> ARequest<'r, 's, 'h, L> {
     pub fn new<F>(
         request: &'r Request, listen_addr: &'r str, session: &'r Session<'s>,
         sessionid_hasher: &'h Hasher,
         lang_from_path: &F,
     ) -> Result<Self>
-    where F: Fn(&PPath<KString>) -> Option<Lang> + Send + Sync
+    where F: Fn(&PPath<KString>) -> Option<L> + Send + Sync
     {
         let path_original = request.url(); // path only
         let path: PPath<KString> = PPath::from_str(&path_original);
@@ -81,13 +83,13 @@ impl<'r, 's, 'h> ARequest<'r, 's, 'h> {
         // let headers = request.headers();  -- iterator
         let method = HttpRequestMethod::from_str(request.method())?;
         let lang_cookie = get_cookie(request, LangKey.as_str()).map(KString::from_ref);
-        let lang: Option<Lang> =
+        let lang: Option<L> =
             lang_from_path(&path)
-            .or_else(|| lang_cookie.as_ref().and_then(|s| Lang::maybe_from(s.as_str())))
+            .or_else(|| lang_cookie.as_ref().and_then(|s| L::maybe_from(s.as_str())))
             .or_else(|| request.header("Accept-Language").and_then(|s| {
-                let ss = Lang::strs();
+                let ss = L::strs();
                 priority_header_preferred(s, ss.iter().cloned())
-                    .map(|i| Lang::maybe_from(ss[i]).expect("Lang::strs() holds it"))
+                    .map(|i| L::maybe_from(ss[i]).expect("Lang::strs() holds it"))
             }));
         // dbg!(&lang);
         Ok(ARequest {
@@ -172,7 +174,7 @@ impl<'r, 's, 'h> ARequest<'r, 's, 'h> {
         self.sessionid_hasher.clone()
     }
 
-    pub fn lang(&self) -> Lang {
+    pub fn lang(&self) -> L {
         self.lang.unwrap_or_default()
     }
 }

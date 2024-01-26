@@ -8,6 +8,7 @@ use crate::aresponse::AResponse;
 use crate::http_request_method::HttpRequestMethodSimple;
 use crate::http_response_status_codes::HttpResponseStatusCode;
 use crate::ahtml::{HtmlAllocator, Node};
+use crate::language::Language;
 use crate::webutils::htmlresponse;
 
 
@@ -19,10 +20,11 @@ lazy_static! {
     static ref STATE: Mutex<State> = Mutex::new(State { counter: 0 });
 }
 
-pub fn benchmark<'a>(_request: &ARequest,
-                     _method: HttpRequestMethodSimple,
-                     alloc: &HtmlAllocator)
-            -> Result<AResponse>
+pub fn benchmark<'a, L: Language>(
+    _request: &ARequest<L>,
+    _method: HttpRequestMethodSimple,
+    alloc: &HtmlAllocator
+) -> Result<AResponse>
 {
     htmlresponse(alloc, HttpResponseStatusCode::OK200, |h| {
         let lit = |s| h.staticstr(s);

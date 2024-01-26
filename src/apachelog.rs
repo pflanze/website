@@ -16,6 +16,7 @@ use crate::arequest::ARequest;
 use crate::aresponse::AResponse;
 use crate::easy_fs::open_log_output;
 use crate::http_response_status_codes::HttpResponseStatusCode;
+use crate::language::Language;
 use crate::try_result;
 use crate::webutils::errorpage_from_status;
 
@@ -42,9 +43,9 @@ pub fn write_time(
 // We also add duration at the end.
 
 /// Write to access.log; Not sure yet about how to handle Error XX
-pub fn write_combined(
+pub fn write_combined<L: Language>(
     outp: &mut impl Write,
-    request: &ARequest,
+    request: &ARequest<L>,
     duration: Duration,
     aresponse: &mut AResponse, // temporarily swaps out ResponseBody and back
 ) -> Result<()> {
@@ -88,9 +89,9 @@ pub fn write_combined(
 // But we don't need to follow this.
 
 /// Write to error.log
-fn write_error(
+fn write_error<L: Language>(
     outp: &mut impl Write,
-    request: &ARequest,
+    request: &ARequest<L>,
     duration: Duration,
     err: anyhow::Error,
 ) -> Result<()> {
@@ -105,8 +106,8 @@ fn write_error(
 }
 
 /// Panic log to stderr. Panics on errors logging to stderr.
-fn write_panic_stderr(
-    request: &ARequest,
+fn write_panic_stderr<L: Language>(
+    request: &ARequest<L>,
     duration: Duration
 ) {
     try_result!{
@@ -163,8 +164,8 @@ impl Logs {
 }
 
 
-pub fn log_combined<F>(
-    request: &ARequest,
+pub fn log_combined<L: Language, F>(
+    request: &ARequest<L>,
     handler: F
 ) -> AResponse
 where

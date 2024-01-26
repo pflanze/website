@@ -15,7 +15,7 @@ use website::hostrouter::{HostRouter, HostsRouter};
 use website::http_response_status_codes::HttpResponseStatusCode;
 use website::imageinfo::static_img;
 use website::io_util::my_read_to_string;
-use website::lang::Lang;
+use website::language::Language;
 use website::path::base_and_suffix;
 use website::ppath::PPath;
 use website::style::footnotes::{WikipediaStyle, BlogStyle};
@@ -32,6 +32,60 @@ use website::webparts::{markdownpage_handler, blog_handler, server_handler,
 use website::website_layout::WebsiteLayout;
 use website::handler::Handler;
 use website::{website_benchmark, warn};
+
+
+// ------------------------------------------------------------------
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum Lang {
+    En,
+    De,
+}
+
+impl Language for Lang {
+    // XX use some parse trait instead ?
+
+    fn maybe_from(s: &str) -> Option<Self> {
+        match dbg!(s) {
+            "en" => Some(Lang::En),
+            "de" => Some(Lang::De),
+            _ => None
+        }
+    }
+
+    fn strs() -> &'static [&'static str] {
+        &["en", "de"]
+    }
+}
+
+impl Default for Lang {
+    fn default() -> Self {
+        Lang::En
+    }
+}
+
+impl From<&str> for Lang {
+    fn from(s: &str) -> Self {
+        Lang::maybe_from(s).unwrap_or_default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn t_from() {
+        assert_eq!(Lang::from("de"), Lang::De);
+        assert_eq!(Lang::from("de_CH"), Lang::De);
+        assert_eq!(Lang::from("de-CH"), Lang::De);
+        assert_eq!(Lang::from("dee"), Lang::De);
+        assert_eq!(Lang::from("dfe"), Lang::En);
+        assert_eq!(Lang::maybe_from("dfe"), None);
+        assert_eq!(Lang::maybe_from("d"), None);
+    }
+}
+// ------------------------------------------------------------------
 
 // HACK for now
 const LANG_FROM_PATH: &[(&str, Lang)] = &[
@@ -186,10 +240,10 @@ fn main() -> Result<()> {
     let preview_groupid = access_control_transaction(false, |trans| -> Result<_> {
         Ok(trans.xget_group_by_groupname("preview")?.id.expect("present from db"))
     })?;
-    let mut router : MultiRouter<Arc<dyn Handler>> = MultiRouter::new();
+    let mut router : MultiRouter<Arc<dyn Handler<Lang>>> = MultiRouter::new();
     router
         .add("/login", login_handler(style.clone()))
-        .add("/bench", Arc::new(ExactFnHandler(website_benchmark::benchmark)))
+        .add("/bench", Arc::new(ExactFnHandler::new(website_benchmark::benchmark)))
         .add("/", markdownpage_handler(&in_datadir("de.de-en.md"), style.clone())) // XXX redir
     // --------------------------------------------
     // XX horrible hack, make a dir lister; also redirector for dir; and for non-language urls (ok that one will be above)
@@ -259,7 +313,8 @@ fn main() -> Result<()> {
         {
             // Must *not* redirect files for letsencrypt, thus need a
             // router for these:
-            let mut letsencrypt_router : MultiRouter<Arc<dyn Handler>> = MultiRouter::new();
+            let mut letsencrypt_router : MultiRouter<Arc<dyn Handler<Lang>>>
+                = MultiRouter::new();
             letsencrypt_router
                 .add("/.well-known", Arc::new(FileHandler::new(&wellknowndir)));
             hostsrouter.add(
@@ -267,7 +322,7 @@ fn main() -> Result<()> {
                 Arc::new(HostRouter {
                     router: Some(Arc::new(letsencrypt_router)),
                     fallback: Some(Arc::new(RedirectHandler::new(
-                        move |request: &ARequest| {
+                        move |request: &ARequest<Lang>| {
                             // XX this should be done in a better way.
                             let qs = request.query_string();
                             let qs_ =

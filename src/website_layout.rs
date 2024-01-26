@@ -10,7 +10,9 @@ use crate::{webparts::LayoutInterface,
             ahtml::{HtmlAllocator, AId, Node, Flat, ToASlice, att},
             nav::{Nav, ToHtml},
             time_util::LocalYear,
-            warn, lang::Lang, alist::AList};
+            warn,
+            language::Language,
+            alist::AList};
 
 fn year_range(from: i32, to: i32) -> String {
     if from == to {
@@ -20,17 +22,17 @@ fn year_range(from: i32, to: i32) -> String {
     }
 }
 
-pub struct WebsiteLayout {
+pub struct WebsiteLayout<L: Language + 'static> {
     pub site_name: &'static str,
     pub copyright_owner: &'static str,
-    pub nav: &'static [(Lang, Nav<'static>)],
+    pub nav: &'static [(L, Nav<'static>)],
     pub header_contents: Box<dyn Fn(&HtmlAllocator) -> Result<Flat<Node>> + Send + Sync>,
 }
 
-impl LayoutInterface for WebsiteLayout {
+impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
     fn page(
         &self,
-        request: &ARequest,
+        request: &ARequest<L>,
         html: &HtmlAllocator,
         // Can't be preserialized HTML, must be string node:
         head_title: Option<AId<Node>>,
@@ -64,10 +66,10 @@ impl LayoutInterface for WebsiteLayout {
                 html.div([att("class", "no_breadcrumb")], [])?
             };
 
-        let lang: Lang = request.lang();
+        let lang: L = request.lang();
         let nav_html =
             if let Some(nav) = AList(self.nav).get(&lang) {
-                nav.to_html(&html, &request)?
+                nav.to_html(&html, request)?
             } else {
                 html.empty_node()?
             };

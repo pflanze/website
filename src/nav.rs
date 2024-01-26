@@ -3,10 +3,12 @@ use kstring::KString;
 
 use crate::{ahtml::{HtmlAllocator, AId, Node, TryCollectBody, att},
             arequest::ARequest,
-            ppath::PPath};
+            ppath::PPath, language::Language};
 
 pub trait ToHtml {
-    fn to_html(&self, html: &HtmlAllocator, request: &ARequest) -> Result<AId<Node>>;
+    fn to_html<L: Language>(
+        &self, html: &HtmlAllocator, request: &ARequest<L>
+    ) -> Result<AId<Node>>;
 }
 
 
@@ -15,7 +17,9 @@ pub enum SubEntries {
     MdDir(&'static str), // Path
 }
 impl ToHtml for SubEntries {
-    fn to_html(&self, _html: &HtmlAllocator, _request: &ARequest) -> Result<AId<Node>> {
+    fn to_html<L: Language>(
+        &self, _html: &HtmlAllocator, _request: &ARequest<L>
+    ) -> Result<AId<Node>> {
         todo!()
     }
 }
@@ -26,7 +30,9 @@ pub struct NavEntry {
     pub subentries: SubEntries
 }
 impl ToHtml for NavEntry {
-    fn to_html(&self, html: &HtmlAllocator, request: &ARequest) -> Result<AId<Node>> {
+    fn to_html<L: Language>(
+        &self, html: &HtmlAllocator, request: &ARequest<L>
+    ) -> Result<AId<Node>> {
         let name = html.staticstr(self.name)?;
         html.li(
             [],
@@ -51,7 +57,9 @@ impl NavEntry {
 pub struct Nav<'t>(pub &'t [NavEntry]);
 
 impl<'t> ToHtml for Nav<'t> {
-    fn to_html(&self, html: &HtmlAllocator, request: &ARequest) -> Result<AId<Node>> {
+    fn to_html<L: Language>(
+        &self, html: &HtmlAllocator, request: &ARequest<L>
+    ) -> Result<AId<Node>> {
         Ok(html.ul(
             [att("class", "nav")],
             self.0.iter().map(|naventry| naventry.to_html(html, request))

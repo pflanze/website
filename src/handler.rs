@@ -1,5 +1,6 @@
 use std::fs::File;
 use std::io::ErrorKind;
+use std::marker::PhantomData;
 use std::os::linux::fs::MetadataExt;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{fmt::Debug, any::type_name, path::PathBuf, borrow::Cow};
@@ -13,6 +14,7 @@ use crate::ahtml::HtmlAllocator;
 use crate::aresponse::AResponse;
 use crate::http_request_method::HttpRequestMethodSimple;
 use crate::http_response_status_codes::HttpResponseStatusCode;
+use crate::language::Language;
 use crate::myasstr::MyAsStr;
 use crate::ppath::PPath;
 use crate::{or_return_none, warn};
@@ -121,7 +123,7 @@ mod tests {
 }
 
 
-pub trait Handler: Debug + Send + Sync {
+pub trait Handler<L: Language>: Debug + Send + Sync {
     /// Returning Ok(None) means, the handler is refusing to handle
     /// the request. It is to be handled as 404 not found by the
     /// caller, unless there's another alternative handler picking up
@@ -133,7 +135,7 @@ pub trait Handler: Debug + Send + Sync {
     /// interested.
     fn call<'a>(
         &self,
-        request: &ARequest,
+        request: &ARequest<L>,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
         html: &HtmlAllocator)
@@ -179,11 +181,11 @@ impl FileHandler {
     }
 }
 
-impl Handler for FileHandler {
+impl<L: Language + Default> Handler<L> for FileHandler {
     /// Returns None if the file does not exist
     fn call<'a>(
         &self,
-        request: &ARequest,
+        request: &ARequest<L>,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
         _html: &HtmlAllocator)
@@ -329,28 +331,48 @@ impl Handler for FileHandler {
 /// A Handler that allows a path surplus, passing it to the handler
 /// Fn. The handler may still refuse to handle the request (404).
 #[derive(Clone, Copy)]
-pub struct FnHandler<F>(pub F)
-where F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
-            -> Result<Option<AResponse>> + Send + Sync;
+pub struct FnHandler<L, F>
+where L: Language,
+      F: Fn(&ARequest<L>, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
+            -> Result<Option<AResponse>> + Send + Sync
+{
+    phantom: PhantomData<L>,
+    handler: F
+}
 
-impl<F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
+impl<L: Language,
+     F: Fn(&ARequest<L>, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
            -> Result<Option<AResponse>> + Send + Sync>
-    Handler for FnHandler<F>
+    FnHandler<L, F>
+{
+    pub fn new(handler: F) -> Self {
+        Self {
+            phantom: PhantomData,
+            handler,
+        }
+    }
+}
+
+impl<L: Language + Send + Sync,
+     F: Fn(&ARequest<L>, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
+           -> Result<Option<AResponse>> + Send + Sync>
+    Handler<L> for FnHandler<L, F>
 {
     fn call(
         &self,
-        request: &ARequest,
+        request: &ARequest<L>,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
         html: &HtmlAllocator) -> Result<Option<AResponse>>
     {
-        self.0(request, method, pathrest, html)
+        (self.handler)(request, method, pathrest, html)
     }
 }
 
-impl<F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
+impl<L: Language,
+     F: Fn(&ARequest<L>, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
            -> Result<Option<AResponse>> + Send + Sync>
-    Debug for FnHandler<F>
+    Debug for FnHandler<L, F>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("FnHandler({})",
@@ -361,24 +383,43 @@ impl<F: Fn(&ARequest, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
 // ------------------------------------------------------------------
 /// A Handler that does not allow a path surplus, passing it to the handler Fn.
 #[derive(Clone, Copy)]
-pub struct ExactFnHandler<F>(pub F)
-where F: Fn(&ARequest, HttpRequestMethodSimple, &HtmlAllocator)
-            -> Result<AResponse> + Send + Sync;
+pub struct ExactFnHandler<L, F>
+where L: Language,
+      F: Fn(&ARequest<L>, HttpRequestMethodSimple, &HtmlAllocator)
+            -> Result<AResponse> + Send + Sync
+{
+    phantom: PhantomData<L>,
+    handler: F
+}
 
-impl<F: Fn(&ARequest, HttpRequestMethodSimple, &HtmlAllocator)
+impl<L: Language + Send + Sync,
+     F: Fn(&ARequest<L>, HttpRequestMethodSimple, &HtmlAllocator)
            -> Result<AResponse> + Send + Sync>
-    Handler
-    for ExactFnHandler<F>
+    ExactFnHandler<L, F>
+{
+    pub fn new(handler: F) -> Self {
+        Self {
+            phantom: PhantomData,
+            handler,
+        }
+    }
+}
+
+impl<L: Language + Send + Sync,
+     F: Fn(&ARequest<L>, HttpRequestMethodSimple, &HtmlAllocator)
+           -> Result<AResponse> + Send + Sync>
+    Handler<L>
+    for ExactFnHandler<L, F>
 {
     fn call(
         &self,
-        request: &ARequest,
+        request: &ARequest<L>,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
         html: &HtmlAllocator) -> Result<Option<AResponse>>
     {
         if pathrest.segments().is_empty() {
-            Ok(Some(self.0(request, method, html)?))
+            Ok(Some((self.handler)(request, method, html)?))
         } else {
             // refuse to handle if there is a rest (-> 404)
             Ok(None)
@@ -386,10 +427,11 @@ impl<F: Fn(&ARequest, HttpRequestMethodSimple, &HtmlAllocator)
     }
 }
 
-impl<F: Fn(&ARequest, HttpRequestMethodSimple, &HtmlAllocator)
+impl<L: Language,
+     F: Fn(&ARequest<L>, HttpRequestMethodSimple, &HtmlAllocator)
            -> Result<AResponse> + Send + Sync>
     Debug
-    for ExactFnHandler<F>
+    for ExactFnHandler<L, F>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("FnHandler({})",
@@ -415,41 +457,50 @@ pub fn map_redirect(code: HttpResponseStatusCode) -> Option<Box<dyn Fn(String) -
     }
 }
 
-pub struct RedirectHandler<F>
-where F: Fn(&ARequest) -> String + Send + Sync,
+pub struct RedirectHandler<L, F>
+where L: Language,
+      F: Fn(&ARequest<L>) -> String + Send + Sync,
 {
+    // Phantom is necessary because L is only used via impl in F; and
+    // I want F to be bound here already, not just in the
+    // methods. (Because indirect, Rust doesn't otherwise tie the two?)
+    phantom: PhantomData<L>,
     calculate_target: F,
     code: HttpResponseStatusCode,
 }
 
-impl<F> RedirectHandler<F>
-where F: Fn(&ARequest) -> String + Send + Sync,
+impl<L, F> RedirectHandler<L, F>
+where L: Language,
+      F: Fn(&ARequest<L>) -> String + Send + Sync,
 {
     /// Panics immediately when given a `code` that's not a redirect.
     pub fn new(calculate_target: F, code: HttpResponseStatusCode) -> Self {
         let _ = map_redirect(code).expect(
             "given code must be a redirect");
         RedirectHandler {
+            phantom: PhantomData,
             calculate_target,
             code,
         }
     }
 }
 
-impl<F> Debug for RedirectHandler<F>
-where F: Fn(&ARequest) -> String + Send + Sync,
+impl<L, F> Debug for RedirectHandler<L, F>
+where L: Language,
+      F: Fn(&ARequest<L>) -> String + Send + Sync,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("RedirectHandler(?, {:?})", self.code))
     }
 }
 
-impl<F> Handler for RedirectHandler<F>
-where F: Fn(&ARequest) -> String + Send + Sync,
+impl<L, F> Handler<L> for RedirectHandler<L, F>
+where L: Language  + Send + Sync,
+      F: Fn(&ARequest<L>) -> String + Send + Sync,
 {
     fn call<'a>(
         &self,
-        request: &ARequest,
+        request: &ARequest<L>,
         _method: HttpRequestMethodSimple,
         _pathrest: &PPath<KString>,
         _html: &HtmlAllocator

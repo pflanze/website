@@ -11,21 +11,21 @@ use crate::{router::MultiRouter,
             arequest::ARequest,
             ahtml::HtmlAllocator,
             webutils::errorpage_from_status,
-            http_response_status_codes::HttpResponseStatusCode, http_request_method::HttpRequestMethodSimple, aresponse::AResponse};
+            http_response_status_codes::HttpResponseStatusCode, http_request_method::HttpRequestMethodSimple, aresponse::AResponse, language::Language};
 
 /// Route for a particular host (domain)
-pub struct HostRouter {
-    pub router: Option<Arc<MultiRouter<Arc<dyn Handler>>>>,
+pub struct HostRouter<L: Language> {
+    pub router: Option<Arc<MultiRouter<Arc<dyn Handler<L>>>>>,
     /// Fallback when no router accepted the path.
-    pub fallback: Option<Arc<dyn Handler>>,
+    pub fallback: Option<Arc<dyn Handler<L>>>,
     /// Logs when using either routed or fallback handler.
     pub logs: Arc<Mutex<Logs>>,
 }
 
-impl HostRouter {
+impl<L: Language> HostRouter<L> {
     pub fn handle_request(
         &self,
-        request: &ARequest,
+        request: &ARequest<L>,
         method: HttpRequestMethodSimple,
         allocator: &HtmlAllocator
     ) -> (Arc<Mutex<Logs>>, anyhow::Result<AResponse>)
@@ -57,21 +57,21 @@ impl HostRouter {
 }
 
 /// Routes for all hosts (domains)
-pub struct HostsRouter {
+pub struct HostsRouter<L: Language> {
     /// Hostnames are stored in lowercased form.
-    pub routers: HashMap<KString, Arc<HostRouter>>,
+    pub routers: HashMap<KString, Arc<HostRouter<L>>>,
     /// Fallback when either no `Host` header was sent, or it was not
     /// found in `routers`.
-    pub fallback: Option<Arc<HostRouter>>,
+    pub fallback: Option<Arc<HostRouter<L>>>,
     /// Logs when there is no fallback handler.
     pub logs: Arc<Mutex<Logs>>,
 }
 
-impl HostsRouter {
-    pub fn new(fallback: Option<Arc<HostRouter>>,
+impl<L: Language> HostsRouter<L> {
+    pub fn new(fallback: Option<Arc<HostRouter<L>>>,
                logs: Arc<Mutex<Logs>>
-    ) -> HostsRouter {
-        HostsRouter {
+    ) -> Self {
+        Self {
             routers: Default::default(),
             fallback,
             logs
@@ -80,7 +80,7 @@ impl HostsRouter {
 
     pub fn add(&mut self,
                hostname: &str,
-               hostrouter: Arc<HostRouter>
+               hostrouter: Arc<HostRouter<L>>
     ) -> &mut Self {
         if let Some(_old) =
             self.routers.insert(KString::from_string(hostname.to_lowercase()),

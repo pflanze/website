@@ -26,9 +26,9 @@ pub mod ipaddr_util;
 pub mod sqlite_util;
 pub mod auri;
 pub mod alist;
+pub mod language;
 pub mod rouille_util;
 pub mod str_util;
-pub mod lang;
 pub mod style {
     pub mod footnotes;
 }
