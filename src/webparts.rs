@@ -54,13 +54,6 @@ pub fn server_handler<'t, L: Language + Default>(
         time_guard!("server_handler"); // timings including infrastructure cost
         session(request, "sid", 3600 /*sec*/, |session| {
             let aresponse = in_threadpool(threadpool.clone(), || -> AResponse {
-                // {
-                //     let mut buf = [0u8; 1];
-                //     getrandom::getrandom(&mut buf).expect("getrandom should work");
-                //     if buf[0] > 200 {
-                //         panic!("letzs'see");
-                //     }
-                // }
                 let okhandler = |request| -> AResponse {
                     log_combined(
                         &request,
