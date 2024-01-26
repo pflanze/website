@@ -77,7 +77,7 @@ impl Default for Lang {
 
 impl From<&str> for Lang {
     fn from(s: &str) -> Self {
-        Lang::maybe_from(s).unwrap_or_default()
+        Lang::maybe_from_start(s).unwrap_or_default()
     }
 }
 
