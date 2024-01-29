@@ -13,7 +13,7 @@ want to keep and migrate. But I now know that I can get working
 whatever I need.
 
 The code is [public](https://github.com/pflanze/website), but while
-I'll be able to base other websites on it it's not clear whether it
+I'll be able to base other websites on it, it's not clear whether it
 will be as useful for others in the current form.  It also contains
 the code to serve a blog. I'll publish a post about this
 code base.

@@ -17,14 +17,14 @@ XX link project once more is done-->
 My core interests and competencies are:
 
 * Development of systems for data processing and management, as well
-  as web sites and web- and GUI applications in the programming
+  as websites and web- and GUI applications in the programming
   language
   [Rust](https://en.wikipedia.org/wiki/Rust_(programming_language)).
   Rust is a systems development language with advantages for
   performance, stability, and breadth of applicability.
 
 * Development of systems for data processing or management as well as
-  web sites in the programming language
+  websites in the programming language
   [Python](https://en.wikipedia.org/wiki/Python_(programming_language)).
 
 * Development and application of algorithms in either technology.
