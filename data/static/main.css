@@ -303,7 +303,7 @@ hr {
 .navrow {
     padding-left: 0px;
     padding-right: 0px;
-    padding-top: 15px;
+    padding-top: 0px;
     padding-bottom: 0px;
     display: flex;
     flex-direction: row;
