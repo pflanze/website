@@ -4,9 +4,9 @@ Ich bin daran interessiert, für Projekte in Bereichen der Umwelt und
 des Klimawandels zu arbeiten.
 
 Ich habe ein Diplom in [Umweltnaturwissenschaften](https://usys.ethz.ch/studium/umweltnaturwissenschaften.html)
-der [ETH Zurich](https://ethz.ch/de.html). Obwohl ich inzwischen viel mehr 
-Knowledge und Erfahrung als Softwareentwickler habe, kann mir diese
-Ausbildung helfen an was Ihre Firma oder Ihr Projekt arbeitet, was zu
+der [ETH Zürich](https://ethz.ch/de.html). Obwohl ich inzwischen viel mehr 
+Wissen und Erfahrung als Softwareentwickler habe, kann mir diese
+Ausbildung helfen zu verstehen, an was Ihre Firma oder Ihr Projekt arbeitet, was zu
 weniger Missverständnissen und effizienterer Zusammenarbeit führt.
 
 Ich arbeite mich derzeit in den Bereich Data Science und Analytik ein,
@@ -18,7 +18,7 @@ Meine Kern-Interessen und Kompetenzen sind:
   per Web oder auch Desktop-Applikation, in der Programmiersprache
   [Rust](https://de.wikipedia.org/wiki/Rust_(Programmiersprache)).
   Rust ist eine Systemprogrammiersprache mit Vorteilen für die Performanz,
-  Stabilität, und Breite ihrer Anwendbarkeit.
+  Stabilität und Breite ihrer Anwendbarkeit.
 
 * Entwicklung von Systemen in der Programmiersprache
   [Python](https://de.wikipedia.org/wiki/Python_(Programmiersprache)).
@@ -26,7 +26,7 @@ Meine Kern-Interessen und Kompetenzen sind:
 * Entwicklung und Anwendung von Algorithmen in beiden Technologien.
 
 * Data Science und Analytik (einfachere Fälle oder in Zusammenarbeit,
-  da ich noch am lernen bin).
+  da ich noch am Lernen bin).
 
 * Einrichtung und Unterhalt von Server-Infrastruktur nach Bedarf.
 

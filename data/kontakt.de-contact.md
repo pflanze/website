@@ -6,7 +6,7 @@ collaboration, or mentoring.
  schreib on front page gl
 -->
 
-Senden Sie mir Email an <ch@christianjaeger.ch>. Ich werde Sie gerne
+Senden Sie mir E-Mail an <ch@christianjaeger.ch>. Ich werde Sie gerne
 per Telefon oder Videokonferenz zurückrufen.
 
 <!--
@@ -16,7 +16,7 @@ to catch the port there! Port forwarding even? But sender.
 
 -->
 
-Wenn Sie zur Versendung verschlüsselter Email eingerichtet sind, können Sie
+Wenn Sie zur Versendung verschlüsselter E-Mail eingerichtet sind, können Sie
 [diesen](/static/cj-key-2.asc) PGP Schlüssel mit Fingerabdruck
 `7312F47D9436FBF8C3F80CF2748247966F366AE9` verwenden um mich zu erreichen<!--, and use
 [these](/static/cj-key-1.asc) [keys](/static/cj-key-0.asc) to verify a

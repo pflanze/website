@@ -11,8 +11,8 @@ sind Backend, Linux-Systeme, Netzwerkdienste, Interpreter,
 und GUI-Schnittstellen. Ich kann möglicherweise auch Arbeit im Embedded-Bereich,
 Data Science, oder Grafischer Programmierung annehmen.
 
-Wenn möglich und passend publiziere ich die Produkte die ich entwickle
-als Open Source Projekte.
+Wenn möglich und passend publiziere ich die Produkte, die ich entwickle
+als Open-Source-Projekte.
 
 Ich habe Erfahrung im Mentoring von Entwicklern.
 
@@ -20,6 +20,6 @@ Ich habe Erfahrung im Mentoring von Entwicklern.
 
 <!-- I have a background in Environmental Sciences, see [Climate & Environment](climate.html). -->
 
-[Kontaktieren Sie mich](kontakt.html) wenn Sie ein potentielles
+[Kontaktieren Sie mich](kontakt.html), wenn Sie ein potenzielles
 Projekt mit mir besprechen möchten.
 
