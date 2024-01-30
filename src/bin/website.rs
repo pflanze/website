@@ -15,7 +15,7 @@ use website::hostrouter::{HostRouter, HostsRouter};
 use website::http_response_status_codes::HttpResponseStatusCode;
 use website::imageinfo::static_img;
 use website::io_util::my_read_to_string;
-use website::language::Language;
+use website::lang_en_de::Lang;
 use website::path::base_and_suffix;
 use website::ppath::PPath;
 use website::style::footnotes::{WikipediaStyle, BlogStyle};
@@ -33,70 +33,6 @@ use website::website_layout::WebsiteLayout;
 use website::handler::Handler;
 use website::{website_benchmark, warn};
 
-
-// ------------------------------------------------------------------
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Lang {
-    En,
-    De,
-}
-
-impl Language for Lang {
-    // XX use some parse trait instead ?
-
-    fn maybe_from(s: &str) -> Option<Self> {
-        match dbg!(s) {
-            "en" => Some(Lang::En),
-            "de" => Some(Lang::De),
-            _ => None
-        }
-    }
-
-    fn as_str(self) -> &'static str {
-        match self {
-            Lang::En => "en",
-            Lang::De => "de",
-        }
-    }
-
-    fn members() -> &'static [Self] {
-        &[Lang::En, Lang::De]
-    }
-
-    fn strs() -> &'static [&'static str] {
-        &["en", "de"]
-    }
-}
-
-impl Default for Lang {
-    fn default() -> Self {
-        Lang::En
-    }
-}
-
-impl From<&str> for Lang {
-    fn from(s: &str) -> Self {
-        Lang::maybe_from_start(s).unwrap_or_default()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn t_from() {
-        assert_eq!(Lang::from("de"), Lang::De);
-        assert_eq!(Lang::from("de_CH"), Lang::De);
-        assert_eq!(Lang::from("de-CH"), Lang::De);
-        assert_eq!(Lang::from("dee"), Lang::De);
-        assert_eq!(Lang::from("dfe"), Lang::En);
-        assert_eq!(Lang::maybe_from("dfe"), None);
-        assert_eq!(Lang::maybe_from("d"), None);
-    }
-}
-// ------------------------------------------------------------------
 
 // HACK for now
 const LANG_FROM_PATH: &[(&str, (Lang, &str))] = &[
