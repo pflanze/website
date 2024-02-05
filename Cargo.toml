@@ -23,7 +23,8 @@ sqlite = { version = "0.30", default-features = false, features = [] }
 scoped-thread-pool = "1.0"
 clap = { version = "3", features = ["derive"] }
 base64 = "0.13"
-argon2 = "0.5"
+#argon2 = "0.5"
+argon2 = { path = "../src/password-hashes/argon2" }
 rand = "0.8.5"
 rand_distr = "0.4.3"
 pct-str = "2.0.0"
