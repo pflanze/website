@@ -9,6 +9,10 @@ pub enum Lang {
     De,
 }
 
+const MEMBERS: &[Lang] = &[Lang::En, Lang::De];
+// stupid logical copy just for the sake of having it in the binary:
+const STRS: &[&str] = &["en", "de"];
+
 impl Language for Lang {
     // XX use some parse trait instead ?
 
@@ -28,17 +32,17 @@ impl Language for Lang {
     }
 
     fn members() -> &'static [Self] {
-        &[Lang::En, Lang::De]
+        MEMBERS
     }
 
     fn strs() -> &'static [&'static str] {
-        &["en", "de"]
+        STRS
     }
 }
 
 impl Default for Lang {
     fn default() -> Self {
-        Lang::En
+        MEMBERS[0]
     }
 }
 
@@ -61,5 +65,6 @@ mod tests {
         assert_eq!(Lang::from("dfe"), Lang::En);
         assert_eq!(Lang::maybe_from("dfe"), None);
         assert_eq!(Lang::maybe_from("d"), None);
+        assert_eq!(Lang::default(), Lang::En);
     }
 }
