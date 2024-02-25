@@ -156,7 +156,7 @@ a {
     padding-left: 3px;
 }
 .langs li:not(:first-child)::before {
-    content: "|";
+    content: "✦";
     position: relative;
     margin-right: 3px;
 }
