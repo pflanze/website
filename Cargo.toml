@@ -31,6 +31,7 @@ pct-str = "2.0.0"
 # blake3 = "1.5.0"
 blake3 = { path = "../src/BLAKE3" }
 strum = { version = "0.20", features = ["derive"] }
+strum_macros = { version = "0.20" }
 
 # axum = "0.5.17"
 # tokio = { version = "1.28.2", features = ["full"] }

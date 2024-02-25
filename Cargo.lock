@@ -1742,6 +1742,7 @@ dependencies = [
  "serde_json",
  "sqlite",
  "strum",
+ "strum_macros",
  "thiserror",
 ]
 
