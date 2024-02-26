@@ -1,48 +1,48 @@
 //! Implementation of `Language` for English and German (in that
 //! priority order).
 
+use std::str::FromStr; // ::from_str()
+
+use strum::VariantNames; // ::VARIANTS
+use strum::IntoEnumIterator; // ::iter()
+
 use crate::language::Language;
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy,
+         strum_macros::EnumVariantNames, // ::VARIANTS
+         strum::IntoStaticStr, // .into() &str
+         strum_macros::EnumIter, // ::iter()
+         strum_macros::EnumString, // ::from_str( )
+)]
+#[strum(serialize_all = "lowercase")]
 pub enum Lang {
     En,
     De,
 }
 
-const MEMBERS: &[Lang] = &[Lang::En, Lang::De];
-// stupid logical copy just for the sake of having it in the binary:
-const STRS: &[&str] = &["en", "de"];
-
 impl Language for Lang {
-    // XX use some parse trait instead ?
+    type MemberIter = LangIter;
 
     fn maybe_from(s: &str) -> Option<Self> {
-        match dbg!(s) {
-            "en" => Some(Lang::En),
-            "de" => Some(Lang::De),
-            _ => None
-        }
+        Self::from_str(s).ok()
     }
 
     fn as_str(self) -> &'static str {
-        match self {
-            Lang::En => "en",
-            Lang::De => "de",
-        }
+        self.into()
     }
 
-    fn members() -> &'static [Self] {
-        MEMBERS
+    fn members() -> Self::MemberIter {
+        Self::iter()
     }
 
     fn strs() -> &'static [&'static str] {
-        STRS
+        &Self::VARIANTS
     }
 }
 
 impl Default for Lang {
     fn default() -> Self {
-        MEMBERS[0]
+        Self::iter().next().expect("there is at least one Lang member")
     }
 }
 
@@ -64,7 +64,19 @@ mod tests {
         assert_eq!(Lang::from("dee"), Lang::De);
         assert_eq!(Lang::from("dfe"), Lang::En);
         assert_eq!(Lang::maybe_from("dfe"), None);
+        assert_eq!(Lang::maybe_from_start("def"), Some(Lang::De));
+        assert_eq!(Lang::maybe_from_start("dfe"), None);
         assert_eq!(Lang::maybe_from("d"), None);
         assert_eq!(Lang::default(), Lang::En);
+    }
+
+    #[test]
+    fn t_strs() {
+        assert_eq!(Lang::strs(), ["en", "de"]);
+    }
+
+    #[test]
+    fn t_to() {
+        assert_eq!(Lang::De.as_str(), "de");
     }
 }

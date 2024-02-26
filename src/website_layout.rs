@@ -94,7 +94,7 @@ impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
                 items.push(html.li(
                     [],
                     [
-                        if *l == lang {
+                        if l == lang {
                             s
                         } else {
                             if let Some(sibling_url) = sibling_url {
