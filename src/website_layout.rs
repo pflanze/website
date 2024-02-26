@@ -1,6 +1,5 @@
 use std::time::SystemTime;
 
-use httpdate::fmt_http_date;
 use anyhow::Result;
 use chrono::Utc;
 use kstring::KString;
@@ -11,9 +10,11 @@ use crate::{webparts::LayoutInterface,
             nav::{Nav, ToHtml},
             time_util::LocalYear,
             warn,
-            language::Language,
             alist::AList,
-            ppath::PPath};
+            ppath::PPath,
+            language::Language,
+            date_format_website::date_format_httplike_switzerland};
+
 
 fn year_range(from: i32, to: i32) -> String {
     if from == to {
@@ -199,12 +200,16 @@ impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
                                     [att("class", "footer")],
                                     [
                                         if let Some(last_modified) = last_modified {
+                                            let lang = request.lang();
                                             html.div(
                                                 [att("class", "last_modified")],
                                                 [html.string(
                                                     format!("{} {}",
-                                                            last_modified_for(request.lang().as_str()),
-                                                            fmt_http_date(last_modified)))?])?
+                                                            last_modified_for(lang.as_str()),
+                                                            date_format_httplike_switzerland(
+                                                                last_modified,
+                                                                lang
+                                                            )))?])?
                                         } else {
                                             html.empty_node()?
                                         },

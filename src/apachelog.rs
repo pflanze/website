@@ -14,15 +14,14 @@ use rouille::ResponseBody;
 
 use crate::arequest::ARequest;
 use crate::aresponse::AResponse;
+use crate::date_format::months_short;
 use crate::easy_fs::open_log_output;
 use crate::http_response_status_codes::HttpResponseStatusCode;
 use crate::language::Language;
 use crate::try_result;
 use crate::webutils::errorpage_from_status;
 
-// How many times will I write these up?
-const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-                            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+static MONTHS: &[&str; 12] = months_short(crate::lang_en_de::Lang::En);
 
 // "06/Dec/2023:02:02:47 +0100"
 pub fn write_time(
