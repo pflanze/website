@@ -13,6 +13,13 @@ concrete languages, but will be in a library, too. This is solved by
 going via the string representation of the language, loses type
 checking by falling back to the default for `Lang` (English).
 
+## `Flat`
+
+For (HTML) tree generation, often there's a desire to calculate a
+variable number of nodes and then splice them into the context instead
+of embedding them as a subtree. `Flat` in `ahtml.rs` is used for this
+purpose, tied to the ahtml infrastructure.
+
 ## Various
 
 - markdownprocessor etc. return Result, only at the very end we handle
