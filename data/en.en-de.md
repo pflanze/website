@@ -4,8 +4,8 @@
 
 ## I'm a Software Developer for hire
 
-with experience in various technologies including Scheme, Clojure,
-Perl, Python, C, C++, and Rust. <!-- I especially like working in Rust and ..?
+with experience in various technologies including Rust, Scheme, Clojure,
+Perl, Python, C and C++. <!-- I especially like working in Rust and ..?
 which is suitable in a very wide range of contexts. --> My expertise is in
 backend programming, Linux systems, network services, interpreters,
 and GUI interfaces. I may also be able to take on work in embedded

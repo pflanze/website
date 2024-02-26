@@ -4,8 +4,8 @@
 
 ## Freischaffender Softwareentwickler
 
-mit Erfahrung in verschiedenen Technologien inklusive Scheme, Clojure,
-Perl, Python, C, C++, und Rust. <!-- I especially like working in Rust and ..?
+mit Erfahrung in verschiedenen Technologien inklusive Rust, Scheme, Clojure,
+Perl, Python, C und C++. <!-- I especially like working in Rust and ..?
 which is suitable in a very wide range of contexts. --> Meine Spezialitätenbereiche
 sind Backend, Linux-Systeme, Netzwerkdienste, Interpreter,
 und GUI-Schnittstellen. Ich kann möglicherweise auch Arbeit im Embedded-Bereich,
