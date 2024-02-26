@@ -1,5 +1,6 @@
 
 /// A temporary capability to look up
+#[derive(Clone, Copy)]
 pub struct AList<'t, K, V>(pub &'t [(K, V)]);
 
 impl<'t, K: PartialEq, V> AList<'t, K, V>{
