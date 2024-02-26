@@ -36,15 +36,18 @@ use website::{website_benchmark, warn};
 
 // HACK for now
 const LANG_FROM_PATH: &[(&str, (Lang, &str))] = &[
-    // basename, is lang, has sibling
+    // (basename, (is lang, has sibling))
     ("en", (Lang::En, "de")),
     ("climate", (Lang::En, "umwelt")),
     ("contact", (Lang::En, "kontakt")),
     ("projects", (Lang::En, "projekte")),
+    ("about", (Lang::En, "person")),
+    // --
     ("de", (Lang::De, "en")),
     ("umwelt", (Lang::De, "climate")),
     ("projekte", (Lang::De, "projects")),
     ("kontakt", (Lang::De, "contact")),
+    ("person", (Lang::De, "about")),
 ];
 
 const NAV: &[(Lang, Nav)] = &[
@@ -62,6 +65,11 @@ const NAV: &[(Lang, Nav)] = &[
         NavEntry {
             name: "Projects",
             path: "/projects.html",
+            subentries: SubEntries::Static(&[]),
+        },
+        NavEntry {
+            name: "About me",
+            path: "/about.html",
             subentries: SubEntries::Static(&[]),
         },
         NavEntry {
@@ -92,6 +100,11 @@ const NAV: &[(Lang, Nav)] = &[
         NavEntry {
             name: "Projekte",
             path: "/projekte.html",
+            subentries: SubEntries::Static(&[]),
+        },
+        NavEntry {
+            name: "Über mich",
+            path: "/person.html",
             subentries: SubEntries::Static(&[]),
         },
         NavEntry {
@@ -207,11 +220,13 @@ fn main() -> Result<()> {
         .add("/en.html", markdownpage_handler(&in_datadir("en.en-de.md"), style.clone()))
         .add("/climate.html", markdownpage_handler(&in_datadir("climate.en-umwelt.md"), style.clone()))
         .add("/projects.html", markdownpage_handler(&in_datadir("projects.en-projekte.md"), style.clone()))
+        .add("/about.html", markdownpage_handler(&in_datadir("about.en-person.md"), style.clone()))
         .add("/contact.html", markdownpage_handler(&in_datadir("contact.en-kontakt.md"), style.clone()))
 
         .add("/de.html", markdownpage_handler(&in_datadir("de.de-en.md"), style.clone()))
         .add("/umwelt.html", markdownpage_handler(&in_datadir("umwelt.de-climate.md"), style.clone()))
         .add("/projekte.html", markdownpage_handler(&in_datadir("projekte.de-projects.md"), style.clone()))
+        .add("/person.html", markdownpage_handler(&in_datadir("person.de-about.md"), style.clone()))
         .add("/kontakt.html", markdownpage_handler(&in_datadir("kontakt.de-contact.md"), style.clone()))
     // --------------------------------------------
         .add("/static", Arc::new(FileHandler::new(in_datadir("static"))))
