@@ -9,7 +9,7 @@ Perl, Python, C und C++. <!-- I especially like working in Rust and ..?
 which is suitable in a very wide range of contexts. --> Meine Spezialitätenbereiche
 sind Backend, Linux-Systeme, Netzwerkdienste, Interpreter,
 und GUI-Schnittstellen. Ich kann möglicherweise auch Arbeit im Embedded-Bereich,
-Data Science, oder Grafischer Programmierung annehmen.
+Data Science, oder grafischer Programmierung annehmen.
 
 Wenn möglich und passend publiziere ich die Produkte, die ich entwickle
 als Open-Source-Projekte.
