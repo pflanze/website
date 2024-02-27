@@ -15,7 +15,7 @@ use crate::{language::Language,
 
 pub fn date_format_httplike_switzerland<L: Language>(t: SystemTime, lang: L) -> String {
     let langname = lang.as_str();
-    date_format_httplike(t, Zurich, Lang::from(langname))
+    date_format_httplike(t, Zurich, Lang::verbose_from(langname))
 }
 
 #[cfg(test)]

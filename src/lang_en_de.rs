@@ -7,6 +7,7 @@ use strum::VariantNames; // ::VARIANTS
 use strum::IntoEnumIterator; // ::iter()
 
 use crate::language::Language;
+use crate::warn;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy,
          strum_macros::EnumVariantNames, // ::VARIANTS
@@ -51,6 +52,19 @@ impl From<&str> for Lang {
         Lang::maybe_from_start(s).unwrap_or_default()
     }
 }
+
+impl Lang {
+    pub fn verbose_from(s: &str) -> Lang {
+        Lang::maybe_from_start(s).unwrap_or_else(
+            || {
+                let l = Lang::default();
+                warn!("unhandled language {s:?}, falling back to {:?}",
+                      l.as_str());
+                l
+            })
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
