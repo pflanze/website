@@ -788,7 +788,7 @@ impl<L: Language + 'static> Restricted<L> for Arc<dyn Handler<L>> {
 
 
 /// To be instantiated for `/` (or similar?), will redirect to
-/// e.g. `/en.html` using the lang from the current `ARequest`.
+/// e.g. `/en.html` using the lang from the current `AContext`.
 pub fn language_handler<L: Language + 'static>(
 ) -> Arc<dyn Handler<L>> {
     Arc::new(ExactFnHandler::new(    
