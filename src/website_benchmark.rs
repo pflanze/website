@@ -3,7 +3,7 @@ use std::fmt::Write;
 use std::sync::Mutex;
 use anyhow::Result;
 
-use crate::arequest::ARequest;
+use crate::arequest::AContext;
 use crate::aresponse::AResponse;
 use crate::http_request_method::HttpRequestMethodSimple;
 use crate::http_response_status_codes::HttpResponseStatusCode;
@@ -21,7 +21,7 @@ lazy_static! {
 }
 
 pub fn benchmark<'a, L: Language>(
-    _request: &ARequest<L>,
+    _request: &AContext<L>,
     _method: HttpRequestMethodSimple,
     alloc: &HtmlAllocator
 ) -> Result<AResponse>

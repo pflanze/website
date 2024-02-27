@@ -8,7 +8,7 @@ use crate::{router::MultiRouter,
             handler::Handler,
             apachelog::Logs,
             warn,
-            arequest::ARequest,
+            arequest::AContext,
             ahtml::HtmlAllocator,
             webutils::errorpage_from_status,
             http_response_status_codes::HttpResponseStatusCode, http_request_method::HttpRequestMethodSimple, aresponse::AResponse, language::Language};
@@ -25,7 +25,7 @@ pub struct HostRouter<L: Language> {
 impl<L: Language> HostRouter<L> {
     pub fn handle_request(
         &self,
-        request: &ARequest<L>,
+        request: &AContext<L>,
         method: HttpRequestMethodSimple,
         allocator: &HtmlAllocator
     ) -> (Arc<Mutex<Logs>>, anyhow::Result<AResponse>)

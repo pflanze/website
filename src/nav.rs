@@ -2,12 +2,12 @@ use anyhow::Result;
 use kstring::KString;
 
 use crate::{ahtml::{HtmlAllocator, AId, Node, TryCollectBody, att},
-            arequest::ARequest,
+            arequest::AContext,
             ppath::PPath, language::Language};
 
 pub trait ToHtml {
     fn to_html<L: Language>(
-        &self, html: &HtmlAllocator, request: &ARequest<L>
+        &self, html: &HtmlAllocator, request: &AContext<L>
     ) -> Result<AId<Node>>;
 }
 
@@ -18,7 +18,7 @@ pub enum SubEntries {
 }
 impl ToHtml for SubEntries {
     fn to_html<L: Language>(
-        &self, _html: &HtmlAllocator, _request: &ARequest<L>
+        &self, _html: &HtmlAllocator, _request: &AContext<L>
     ) -> Result<AId<Node>> {
         todo!()
     }
@@ -31,7 +31,7 @@ pub struct NavEntry {
 }
 impl ToHtml for NavEntry {
     fn to_html<L: Language>(
-        &self, html: &HtmlAllocator, request: &ARequest<L>
+        &self, html: &HtmlAllocator, request: &AContext<L>
     ) -> Result<AId<Node>> {
         let name = html.staticstr(self.name)?;
         html.li(
@@ -58,7 +58,7 @@ pub struct Nav<'t>(pub &'t [NavEntry]);
 
 impl<'t> ToHtml for Nav<'t> {
     fn to_html<L: Language>(
-        &self, html: &HtmlAllocator, request: &ARequest<L>
+        &self, html: &HtmlAllocator, request: &AContext<L>
     ) -> Result<AId<Node>> {
         Ok(html.ul(
             [att("class", "nav")],

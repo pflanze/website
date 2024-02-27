@@ -9,7 +9,7 @@ use anyhow::{Result, Context, anyhow, bail};
 use httpdate::{fmt_http_date, parse_http_date};
 use kstring::KString;
 use rouille::{Response, extension_to_mime, ResponseBody};
-use crate::arequest::ARequest;
+use crate::arequest::AContext;
 use crate::ahtml::HtmlAllocator;
 use crate::aresponse::AResponse;
 use crate::http_request_method::HttpRequestMethodSimple;
@@ -135,7 +135,7 @@ pub trait Handler<L: Language>: Debug + Send + Sync {
     /// interested.
     fn call<'a>(
         &self,
-        request: &ARequest<L>,
+        request: &AContext<L>,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
         html: &HtmlAllocator)
@@ -185,7 +185,7 @@ impl<L: Language + Default> Handler<L> for FileHandler {
     /// Returns None if the file does not exist
     fn call<'a>(
         &self,
-        request: &ARequest<L>,
+        request: &AContext<L>,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
         _html: &HtmlAllocator)
@@ -333,7 +333,7 @@ impl<L: Language + Default> Handler<L> for FileHandler {
 #[derive(Clone, Copy)]
 pub struct FnHandler<L, F>
 where L: Language,
-      F: Fn(&ARequest<L>, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
+      F: Fn(&AContext<L>, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
             -> Result<Option<AResponse>> + Send + Sync
 {
     phantom: PhantomData<L>,
@@ -341,7 +341,7 @@ where L: Language,
 }
 
 impl<L: Language,
-     F: Fn(&ARequest<L>, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
+     F: Fn(&AContext<L>, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
            -> Result<Option<AResponse>> + Send + Sync>
     FnHandler<L, F>
 {
@@ -354,13 +354,13 @@ impl<L: Language,
 }
 
 impl<L: Language + Send + Sync,
-     F: Fn(&ARequest<L>, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
+     F: Fn(&AContext<L>, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
            -> Result<Option<AResponse>> + Send + Sync>
     Handler<L> for FnHandler<L, F>
 {
     fn call(
         &self,
-        request: &ARequest<L>,
+        request: &AContext<L>,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
         html: &HtmlAllocator) -> Result<Option<AResponse>>
@@ -370,7 +370,7 @@ impl<L: Language + Send + Sync,
 }
 
 impl<L: Language,
-     F: Fn(&ARequest<L>, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
+     F: Fn(&AContext<L>, HttpRequestMethodSimple, &PPath<KString>, &HtmlAllocator)
            -> Result<Option<AResponse>> + Send + Sync>
     Debug for FnHandler<L, F>
 {
@@ -385,7 +385,7 @@ impl<L: Language,
 #[derive(Clone, Copy)]
 pub struct ExactFnHandler<L, F>
 where L: Language,
-      F: Fn(&ARequest<L>, HttpRequestMethodSimple, &HtmlAllocator)
+      F: Fn(&AContext<L>, HttpRequestMethodSimple, &HtmlAllocator)
             -> Result<AResponse> + Send + Sync
 {
     phantom: PhantomData<L>,
@@ -393,7 +393,7 @@ where L: Language,
 }
 
 impl<L: Language + Send + Sync,
-     F: Fn(&ARequest<L>, HttpRequestMethodSimple, &HtmlAllocator)
+     F: Fn(&AContext<L>, HttpRequestMethodSimple, &HtmlAllocator)
            -> Result<AResponse> + Send + Sync>
     ExactFnHandler<L, F>
 {
@@ -406,14 +406,14 @@ impl<L: Language + Send + Sync,
 }
 
 impl<L: Language + Send + Sync,
-     F: Fn(&ARequest<L>, HttpRequestMethodSimple, &HtmlAllocator)
+     F: Fn(&AContext<L>, HttpRequestMethodSimple, &HtmlAllocator)
            -> Result<AResponse> + Send + Sync>
     Handler<L>
     for ExactFnHandler<L, F>
 {
     fn call(
         &self,
-        request: &ARequest<L>,
+        request: &AContext<L>,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
         html: &HtmlAllocator) -> Result<Option<AResponse>>
@@ -428,7 +428,7 @@ impl<L: Language + Send + Sync,
 }
 
 impl<L: Language,
-     F: Fn(&ARequest<L>, HttpRequestMethodSimple, &HtmlAllocator)
+     F: Fn(&AContext<L>, HttpRequestMethodSimple, &HtmlAllocator)
            -> Result<AResponse> + Send + Sync>
     Debug
     for ExactFnHandler<L, F>
@@ -459,7 +459,7 @@ pub fn map_redirect(code: HttpResponseStatusCode) -> Option<Box<dyn Fn(String) -
 
 pub struct RedirectHandler<L, F>
 where L: Language,
-      F: Fn(&ARequest<L>) -> String + Send + Sync,
+      F: Fn(&AContext<L>) -> String + Send + Sync,
 {
     // Phantom is necessary because L is only used via impl in F; and
     // I want F to be bound here already, not just in the
@@ -471,7 +471,7 @@ where L: Language,
 
 impl<L, F> RedirectHandler<L, F>
 where L: Language,
-      F: Fn(&ARequest<L>) -> String + Send + Sync,
+      F: Fn(&AContext<L>) -> String + Send + Sync,
 {
     /// Panics immediately when given a `code` that's not a redirect.
     pub fn new(calculate_target: F, code: HttpResponseStatusCode) -> Self {
@@ -487,7 +487,7 @@ where L: Language,
 
 impl<L, F> Debug for RedirectHandler<L, F>
 where L: Language,
-      F: Fn(&ARequest<L>) -> String + Send + Sync,
+      F: Fn(&AContext<L>) -> String + Send + Sync,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("RedirectHandler(?, {:?})", self.code))
@@ -496,11 +496,11 @@ where L: Language,
 
 impl<L, F> Handler<L> for RedirectHandler<L, F>
 where L: Language  + Send + Sync,
-      F: Fn(&ARequest<L>) -> String + Send + Sync,
+      F: Fn(&AContext<L>) -> String + Send + Sync,
 {
     fn call<'a>(
         &self,
-        request: &ARequest<L>,
+        request: &AContext<L>,
         _method: HttpRequestMethodSimple,
         _pathrest: &PPath<KString>,
         _html: &HtmlAllocator

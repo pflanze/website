@@ -12,7 +12,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc, Datelike, Timelike};
 use rouille::ResponseBody;
 
-use crate::arequest::ARequest;
+use crate::arequest::AContext;
 use crate::aresponse::AResponse;
 use crate::date_format::months_short;
 use crate::easy_fs::open_log_output;
@@ -44,7 +44,7 @@ pub fn write_time(
 /// Write to access.log; Not sure yet about how to handle Error XX
 pub fn write_combined<L: Language>(
     outp: &mut impl Write,
-    request: &ARequest<L>,
+    request: &AContext<L>,
     duration: Duration,
     aresponse: &mut AResponse, // temporarily swaps out ResponseBody and back
 ) -> Result<()> {
@@ -90,7 +90,7 @@ pub fn write_combined<L: Language>(
 /// Write to error.log
 fn write_error<L: Language>(
     outp: &mut impl Write,
-    request: &ARequest<L>,
+    request: &AContext<L>,
     duration: Duration,
     err: anyhow::Error,
 ) -> Result<()> {
@@ -106,7 +106,7 @@ fn write_error<L: Language>(
 
 /// Panic log to stderr. Panics on errors logging to stderr.
 fn write_panic_stderr<L: Language>(
-    request: &ARequest<L>,
+    request: &AContext<L>,
     duration: Duration
 ) {
     try_result!{
@@ -164,7 +164,7 @@ impl Logs {
 
 
 pub fn log_combined<L: Language, F>(
-    request: &ARequest<L>,
+    request: &AContext<L>,
     handler: F
 ) -> AResponse
 where

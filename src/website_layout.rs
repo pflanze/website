@@ -5,7 +5,7 @@ use chrono::Utc;
 use kstring::KString;
 
 use crate::{webparts::LayoutInterface,
-            arequest::ARequest,
+            arequest::AContext,
             ahtml::{HtmlAllocator, AId, Node, Flat, ToASlice, att},
             nav::{Nav, ToHtml},
             time_util::LocalYear,
@@ -45,7 +45,7 @@ pub struct WebsiteLayout<L: Language + 'static> {
 impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
     fn page(
         &self,
-        request: &ARequest<L>,
+        request: &AContext<L>,
         html: &HtmlAllocator,
         // Can't be preserialized HTML, must be string node:
         head_title: Option<AId<Node>>,

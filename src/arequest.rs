@@ -52,7 +52,7 @@ impl CookieKey for LangKey {
 }
 
 /// todo: rename to AContext, it has more than request data now.
-pub struct ARequest<'r, 's, 'h, L: Language> {
+pub struct AContext<'r, 's, 'h, L: Language> {
     // Fallback for host(): what this server listens on; ip:port or
     // domain:port or whatever is deemed suitable
     listen_addr: &'r str, // ref might be valid for longer but we don't guarantee it
@@ -69,7 +69,7 @@ pub struct ARequest<'r, 's, 'h, L: Language> {
     sessionid_hasher: &'h Hasher,
 }
 
-impl<'r, 's, 'h, L: Language + Default> ARequest<'r, 's, 'h, L> {
+impl<'r, 's, 'h, L: Language + Default> AContext<'r, 's, 'h, L> {
     pub fn new<F>(
         request: &'r Request, listen_addr: &'r str, session: &'r Session<'s>,
         sessionid_hasher: &'h Hasher,
@@ -92,7 +92,7 @@ impl<'r, 's, 'h, L: Language + Default> ARequest<'r, 's, 'h, L> {
                     .map(|i| L::maybe_from(ss[i]).expect("Lang::strs() holds it"))
             }));
         // dbg!(&lang);
-        Ok(ARequest {
+        Ok(AContext {
             listen_addr,
             path_original,
             path,

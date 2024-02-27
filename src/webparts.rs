@@ -15,7 +15,7 @@ use rand_distr::Weibull;
 use rouille::{Response, Request, post_input, session::session};
 use scoped_thread_pool::Pool;
 
-use crate::{arequest::ARequest,
+use crate::{arequest::AContext,
             ahtml::{HtmlAllocator, AId, Node, P_META, TryCollectBody, AllocatorPool,
                     att, opt_att},
             webutils::{htmlresponse, request_resolve_relative, errorpage_from_status},
@@ -105,7 +105,7 @@ pub fn server_handler<'t, L: Language + Default>(
                                 .into()))
                         })
                 };
-                match ARequest::new(request, &listen_addr, session, &sessionid_hasher,
+                match AContext::new(request, &listen_addr, session, &sessionid_hasher,
                                     &lang_from_path) {
                     Ok(request) => okhandler(request),
                     Err(e) => {
@@ -188,7 +188,7 @@ pub fn popup_box<'a>(
 }
 
 pub fn show_popup_box_page<L: Language>(
-    request: &ARequest<L>,
+    request: &AContext<L>,
     html: &HtmlAllocator,
     style: &Arc<dyn LayoutInterface<L>>,
     box_kind: PopupBoxKind,
@@ -226,7 +226,7 @@ pub trait LayoutInterface<L: Language>: Send + Sync {
     /// Build a whole HTML page from the given parts
     fn page(
         &self,
-        request: &ARequest<L>,
+        request: &AContext<L>,
         html: &HtmlAllocator,
         // Can't be preserialized HTML, must be string node. If
         // missing, a default title should be used (usually the site
@@ -253,7 +253,7 @@ pub trait LayoutInterface<L: Language>: Send + Sync {
 /// This re-parses the markdown on every request.
 fn markdownprocessor<L: Language>(
     style: Arc<dyn LayoutInterface<L>>,
-    request: &ARequest<L>,
+    request: &AContext<L>,
     path: PathBuf,
     html: &HtmlAllocator    
 ) -> Result<Response>
@@ -296,7 +296,7 @@ pub fn markdownpage_handler<L: Language + 'static>(
     let path = PathBuf::from(file_path);
     Arc::new(ExactFnHandler::new(
         move |
-        request: &ARequest<L>, method: HttpRequestMethodSimple, html: &HtmlAllocator
+        request: &AContext<L>, method: HttpRequestMethodSimple, html: &HtmlAllocator
             | -> Result<AResponse>
         {
             if method.is_post() {
@@ -328,7 +328,7 @@ pub fn markdowndir_handler<L: Language + 'static>(
     let path = PathBuf::from(dir_path);
     Arc::new(FnHandler::new(
         move |
-        request: &ARequest<L>,
+        request: &AContext<L>,
         method: HttpRequestMethodSimple,
         path_rest: &PPath<KString>,
         html: &HtmlAllocator
@@ -402,7 +402,7 @@ pub fn blog_handler<L: Language + 'static>(
     // dbg!(&blog.blogcache());
     Arc::new(FnHandler::new(
         move |
-        request: &ARequest<L>,
+        request: &AContext<L>,
         method: HttpRequestMethodSimple,
         path: &PPath<KString>,
         html: &HtmlAllocator
@@ -537,7 +537,7 @@ pub fn blog_handler<L: Language + 'static>(
 }
 
 fn show_login_form<L: Language>(
-    request: &ARequest<L>,
+    request: &AContext<L>,
     html: &HtmlAllocator,
     style: &Arc<dyn LayoutInterface<L>>,
     error: Option<String>,
@@ -588,7 +588,7 @@ pub fn login_handler<L: Language + 'static>(
 ) -> Arc<dyn Handler<L>> {
     Arc::new(FnHandler::new(
         move |
-        request: &ARequest<L>,
+        request: &AContext<L>,
         method: HttpRequestMethodSimple,
         _path: &PPath<KString>,
         html: &HtmlAllocator
@@ -793,7 +793,7 @@ pub fn language_handler<L: Language + 'static>(
 ) -> Arc<dyn Handler<L>> {
     Arc::new(ExactFnHandler::new(    
         move |
-        request: &ARequest<L>,
+        request: &AContext<L>,
         _method: HttpRequestMethodSimple,
         _html: &HtmlAllocator
             | -> Result<AResponse>

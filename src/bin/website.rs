@@ -7,7 +7,7 @@ use website::access_control::db::access_control_transaction;
 use website::access_control::statements_and_methods::DO_WARN_THREAD;
 use website::alist::AList;
 use website::apachelog::Logs;
-use website::arequest::ARequest;
+use website::arequest::AContext;
 use website::blog::Blog;
 use website::ahtml::{AllocatorPool, Flat, HtmlAllocator, Node, att};
 use anyhow::{Result, bail, anyhow};
@@ -279,7 +279,7 @@ fn main() -> Result<()> {
                 Arc::new(HostRouter {
                     router: Some(Arc::new(letsencrypt_router)),
                     fallback: Some(Arc::new(RedirectHandler::new(
-                        move |request: &ARequest<Lang>| {
+                        move |request: &AContext<Lang>| {
                             // XX this should be done in a better way.
                             let qs = request.query_string();
                             let qs_ =
