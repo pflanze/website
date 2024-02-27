@@ -142,26 +142,6 @@ pub trait Handler<L: Language>: Debug + Send + Sync {
         -> Result<Option<AResponse>>;
 }
 
-// /// Allow closures to be used as `Handler`s
-// impl<C: Fn(&ARequest,
-//            &PPath<KString>,
-//            &Allocator) -> Result<Option<Response>>
-//      + Debug + Send + Sync>
-//     Handler for C
-// {
-//     fn call<'a>(
-//         &self,
-//         request: &ARequest,
-//         pathrest: &PPath<KString>,
-//         html: &Allocator)
-//         -> Result<Option<Response>> {
-//         self(request, pathrest, html)
-//     }
-// }
-// Can't do with Debug. See `..FnHandler`s below instead.
-
-// ProxyHandler
-// FnHandler   or  rlly HtmlDynHandler and PlainDynHandler  and whatnot ?
 
 // ------------------------------------------------------------------
 /// Serve files from the local file system
