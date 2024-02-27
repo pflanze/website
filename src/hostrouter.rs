@@ -25,16 +25,16 @@ pub struct HostRouter<L: Language> {
 impl<L: Language> HostRouter<L> {
     pub fn handle_request(
         &self,
-        request: &AContext<L>,
+        context: &AContext<L>,
         method: HttpRequestMethodSimple,
         allocator: &HtmlAllocator
     ) -> (Arc<Mutex<Logs>>, anyhow::Result<AResponse>)
     {
         if let Some(router) = &self.router {
-            if let Some((handlers, rest)) = router.get(request.path()) {
+            if let Some((handlers, rest)) = router.get(context.path()) {
                 // dt!("multirouter", rest);
                 for handler in handlers {
-                    match handler.call(&request, method, &rest, allocator) {
+                    match handler.call(&context, method, &rest, allocator) {
                         Ok(Some(response)) => return (self.logs.clone(), Ok(response)),
                         Ok(None) => (),
                         Err(e) => return (self.logs.clone(), Err(e)),
@@ -43,7 +43,7 @@ impl<L: Language> HostRouter<L> {
             }
         }
         if let Some(fallback) = self.fallback.as_ref() {
-            match fallback.call(&request, method, request.path(), allocator) {
+            match fallback.call(&context, method, context.path(), allocator) {
                 Ok(Some(response)) =>
                     return (self.logs.clone(), Ok(response)),
                 Ok(None) => (),

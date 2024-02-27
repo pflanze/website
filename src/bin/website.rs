@@ -279,9 +279,9 @@ fn main() -> Result<()> {
                 Arc::new(HostRouter {
                     router: Some(Arc::new(letsencrypt_router)),
                     fallback: Some(Arc::new(RedirectHandler::new(
-                        move |request: &AContext<Lang>| {
+                        move |context: &AContext<Lang>| {
                             // XX this should be done in a better way.
-                            let qs = request.query_string();
+                            let qs = context.query_string();
                             let qs_ =
                                 if qs.is_empty()  {
                                     String::from("")
@@ -291,7 +291,7 @@ fn main() -> Result<()> {
                             let s = if is_https { "s" } else { "" };
                             // is path_str *guaranteed* to start with a slash?
                             format!("http{s}://christianjaeger.ch{}{}",
-                                    request.path_str(),
+                                    context.path_str(),
                                     qs_)
                         },
                         HttpResponseStatusCode::PermanentRedirect308

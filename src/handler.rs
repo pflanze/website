@@ -135,7 +135,7 @@ pub trait Handler<L: Language>: Debug + Send + Sync {
     /// interested.
     fn call<'a>(
         &self,
-        request: &AContext<L>,
+        context: &AContext<L>,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
         html: &HtmlAllocator)
@@ -185,7 +185,7 @@ impl<L: Language + Default> Handler<L> for FileHandler {
     /// Returns None if the file does not exist
     fn call<'a>(
         &self,
-        request: &AContext<L>,
+        context: &AContext<L>,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
         _html: &HtmlAllocator)
@@ -294,7 +294,7 @@ impl<L: Language + Default> Handler<L> for FileHandler {
                             upgrade: None, // XX
                         }.into()))
                     };
-                    if let Some(modsince_str) = request.header("If-Modified-Since")
+                    if let Some(modsince_str) = context.header("If-Modified-Since")
                     {
                         let modsince = parse_http_date(modsince_str).with_context(
                             || anyhow!("parsing If-Modified-Since {:?}",
@@ -306,7 +306,7 @@ impl<L: Language + Default> Handler<L> for FileHandler {
                             warn!("If-Modified-Since: {}; NotModified304", modsince_str);
                             send_notmodified(headers)
                         }
-                    } else if let Some(nonematch_str) = request.header("If-None-Match") {
+                    } else if let Some(nonematch_str) = context.header("If-None-Match") {
                         warn!("got If-None-Match {nonematch_str:?}, \
                                compared to calculated {etag_quoted:?}");
                         if nonematch_str == etag_quoted {
@@ -360,12 +360,12 @@ impl<L: Language + Send + Sync,
 {
     fn call(
         &self,
-        request: &AContext<L>,
+        context: &AContext<L>,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
         html: &HtmlAllocator) -> Result<Option<AResponse>>
     {
-        (self.handler)(request, method, pathrest, html)
+        (self.handler)(context, method, pathrest, html)
     }
 }
 
@@ -413,13 +413,13 @@ impl<L: Language + Send + Sync,
 {
     fn call(
         &self,
-        request: &AContext<L>,
+        context: &AContext<L>,
         method: HttpRequestMethodSimple,
         pathrest: &PPath<KString>,
         html: &HtmlAllocator) -> Result<Option<AResponse>>
     {
         if pathrest.segments().is_empty() {
-            Ok(Some((self.handler)(request, method, html)?))
+            Ok(Some((self.handler)(context, method, html)?))
         } else {
             // refuse to handle if there is a rest (-> 404)
             Ok(None)
@@ -500,12 +500,12 @@ where L: Language  + Send + Sync,
 {
     fn call<'a>(
         &self,
-        request: &AContext<L>,
+        context: &AContext<L>,
         _method: HttpRequestMethodSimple,
         _pathrest: &PPath<KString>,
         _html: &HtmlAllocator
     ) -> Result<Option<AResponse>> {
-        let target = (self.calculate_target)(request);
+        let target = (self.calculate_target)(context);
         let responder = map_redirect(self.code).expect("already checked earlier");
         Ok(Some(responder(target).into()))
     }

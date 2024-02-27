@@ -54,11 +54,11 @@ pub fn server_handler<'t, L: Language + Default>(
         time_guard!("server_handler"); // timings including infrastructure cost
         session(request, "sid", 3600 /*sec*/, |session| {
             let aresponse = in_threadpool(threadpool.clone(), || -> AResponse {
-                let okhandler = |request| -> AResponse {
+                let okhandler = |context| -> AResponse {
                     log_combined(
-                        &request,
+                        &context,
                         || -> (Arc<Mutex<Logs>>, anyhow::Result<AResponse>) {
-                            let method = request.method();
+                            let method = context.method();
                             let unimplemented = |methodname| {
                                 warn!("method {methodname:?} not implemented (yet)");
                                 (hostsrouter.logs.clone(),
@@ -69,18 +69,18 @@ pub fn server_handler<'t, L: Language + Default>(
                                 HttpRequestMethodGrouped::Simple(simplemethod) => {
                                     let mut guard = allocatorpool.get();
                                     let allocator = guard.allocator();
-                                    if let Some(host) = request.host() {
+                                    if let Some(host) = context.host() {
                                         let lchost = host.to_lowercase();
                                         if let Some(hostrouter) = hostsrouter.routers.get(
                                             &KString::from_string(lchost))
                                         {
                                             return hostrouter.handle_request(
-                                                &request, simplemethod, allocator)
+                                                &context, simplemethod, allocator)
                                         }
                                     }
                                     if let Some(fallback) = &hostsrouter.fallback {
                                         return fallback.handle_request(
-                                            &request, simplemethod, allocator)
+                                            &context, simplemethod, allocator)
                                     }
                                 }
                                 HttpRequestMethodGrouped::Document(documentmethod) => {
@@ -107,7 +107,7 @@ pub fn server_handler<'t, L: Language + Default>(
                 };
                 match AContext::new(request, &listen_addr, session, &sessionid_hasher,
                                     &lang_from_path) {
-                    Ok(request) => okhandler(request),
+                    Ok(context) => okhandler(context),
                     Err(e) => {
                         warn!("{e}");
                         errorpage_from_status(
@@ -188,7 +188,7 @@ pub fn popup_box<'a>(
 }
 
 pub fn show_popup_box_page<L: Language>(
-    request: &AContext<L>,
+    context: &AContext<L>,
     html: &HtmlAllocator,
     style: &Arc<dyn LayoutInterface<L>>,
     box_kind: PopupBoxKind,
@@ -203,7 +203,7 @@ pub fn show_popup_box_page<L: Language>(
     };
     Ok(Some(htmlresponse(html, status, |html| {
         style.page(
-            request,
+            context,
             html,
             None,
             None,
@@ -226,7 +226,7 @@ pub trait LayoutInterface<L: Language>: Send + Sync {
     /// Build a whole HTML page from the given parts
     fn page(
         &self,
-        request: &AContext<L>,
+        context: &AContext<L>,
         html: &HtmlAllocator,
         // Can't be preserialized HTML, must be string node. If
         // missing, a default title should be used (usually the site
@@ -253,7 +253,7 @@ pub trait LayoutInterface<L: Language>: Send + Sync {
 /// This re-parses the markdown on every request.
 fn markdownprocessor<L: Language>(
     style: Arc<dyn LayoutInterface<L>>,
-    request: &AContext<L>,
+    context: &AContext<L>,
     path: PathBuf,
     html: &HtmlAllocator    
 ) -> Result<Response>
@@ -272,7 +272,7 @@ fn markdownprocessor<L: Language>(
             };
         // XX process footnotes!
         style.page(
-            request,
+            context,
             html,
             // html.kstring(mdmeta.title_string(html, "(missing title)")?)?,
             title,
@@ -296,13 +296,13 @@ pub fn markdownpage_handler<L: Language + 'static>(
     let path = PathBuf::from(file_path);
     Arc::new(ExactFnHandler::new(
         move |
-        request: &AContext<L>, method: HttpRequestMethodSimple, html: &HtmlAllocator
+        context: &AContext<L>, method: HttpRequestMethodSimple, html: &HtmlAllocator
             | -> Result<AResponse>
         {
             if method.is_post() {
                 bail!("can't POST to a markdownpage"); // currently, anyway
             }
-            markdownprocessor(style.clone(), request, path.clone(), html)
+            markdownprocessor(style.clone(), context, path.clone(), html)
                 .map(AResponse::from)
         }
     ))
@@ -328,7 +328,7 @@ pub fn markdowndir_handler<L: Language + 'static>(
     let path = PathBuf::from(dir_path);
     Arc::new(FnHandler::new(
         move |
-        request: &AContext<L>,
+        context: &AContext<L>,
         method: HttpRequestMethodSimple,
         path_rest: &PPath<KString>,
         html: &HtmlAllocator
@@ -384,7 +384,7 @@ pub fn markdowndir_handler<L: Language + 'static>(
                         }
                     }
                 }
-                Ok(Some(markdownprocessor(style.clone(), request, fspath, html)?))
+                Ok(Some(markdownprocessor(style.clone(), context, fspath, html)?))
             })
         }
     ))
@@ -402,7 +402,7 @@ pub fn blog_handler<L: Language + 'static>(
     // dbg!(&blog.blogcache());
     Arc::new(FnHandler::new(
         move |
-        request: &AContext<L>,
+        context: &AContext<L>,
         method: HttpRequestMethodSimple,
         path: &PPath<KString>,
         html: &HtmlAllocator
@@ -412,7 +412,7 @@ pub fn blog_handler<L: Language + 'static>(
             if method.is_post() {
                 bail!("can't POST to blog"); // currently, anyway
             }
-            let with_slash = request.path().ends_with_slash();
+            let with_slash = context.path().ends_with_slash();
             let blogcache = blog.blogcache();
             if let Some(trie) = blogcache.router.get_trie(path) {
                 let blognode = trie.endpoint().expect(
@@ -441,7 +441,7 @@ pub fn blog_handler<L: Language + 'static>(
                         let resp =
                             htmlresponse(html, HttpResponseStatusCode::OK200, |html| {
                                 Ok(style.page(
-                                    request,
+                                    context,
                                     html,
                                     Some(head_title),
                                     Some(title),
@@ -477,7 +477,7 @@ pub fn blog_handler<L: Language + 'static>(
                                         )
                                     };
                                 style.page(
-                                    request,
+                                    context,
                                     html,
                                     Some(archivetitle),
                                     Some(archivetitle),
@@ -506,7 +506,7 @@ pub fn blog_handler<L: Language + 'static>(
                                                             blogpost.publish_date);
                                                     let url =
                                                         request_resolve_relative(
-                                                            request,
+                                                            context,
                                                             PPath::new(false, false,
                                                                        path1));
                                                     Ok(Some(html.li(
@@ -537,7 +537,7 @@ pub fn blog_handler<L: Language + 'static>(
 }
 
 fn show_login_form<L: Language>(
-    request: &AContext<L>,
+    context: &AContext<L>,
     html: &HtmlAllocator,
     style: &Arc<dyn LayoutInterface<L>>,
     error: Option<String>,
@@ -548,7 +548,7 @@ fn show_login_form<L: Language>(
     let pair = pair(html);
     let buttonrow = buttonrow(html);
     let form = html.form(
-        [att("action", request.path_str()), att("method", "POST")],
+        [att("action", context.path_str()), att("method", "POST")],
         [
             if let Some(error) = error {
                 html.div([att("class", "form_error")],
@@ -576,10 +576,10 @@ fn show_login_form<L: Language>(
             ])?,
         ])?;
 
-    show_popup_box_page(request, html, style,
+    show_popup_box_page(context, html, style,
                         PopupBoxKind::Dialog,
                         html.string(format!("Login for {}",
-                                            request.host_or_listen_addr()))?,
+                                            context.host_or_listen_addr()))?,
                         form)
 }
 
@@ -588,7 +588,7 @@ pub fn login_handler<L: Language + 'static>(
 ) -> Arc<dyn Handler<L>> {
     Arc::new(FnHandler::new(
         move |
-        request: &AContext<L>,
+        context: &AContext<L>,
         method: HttpRequestMethodSimple,
         _path: &PPath<KString>,
         html: &HtmlAllocator
@@ -599,7 +599,7 @@ pub fn login_handler<L: Language + 'static>(
             username: Option<String>,
             return_path: Option<String>,
             | {
-                show_login_form(request, html, &style, error, username, return_path)
+                show_login_form(context, html, &style, error, username, return_path)
             };
 
             let immediate = |response: Result<Option<Response>>| -> Result<Option<AResponse>>
@@ -607,7 +607,7 @@ pub fn login_handler<L: Language + 'static>(
                 response.map(|v| v.map(AResponse::from))
             };
             if method.is_post() {
-                let inp = post_input!(request.request(), {
+                let inp = post_input!(context.request(), {
                     username: String,
                     password: String,
                     return_path: Option<String>
@@ -634,15 +634,15 @@ pub fn login_handler<L: Language + 'static>(
                     Ok(Some(user)) => {
                         // Mark session as logged in
                         let user_id = user.id.expect("coming from db has an id");
-                        let session_id = request.session_id();
+                        let session_id = context.session_id();
                         let now_unixtime = now_unixtime();
-                        let ip = request.client_ip().octets();
+                        let ip = context.client_ip().octets();
                         access_control_transaction(true, |trans| -> Result<()> {
                             // Check if the session is already active
                             // (possible if data was stored before logging in)
                             if let Some(mut sessiondata) =
                                 trans.get_sessiondata_by_sessionid(
-                                    session_id, request.sessionid_hasher())?
+                                    session_id, context.sessionid_hasher())?
                             {
                                 if let Some(prev_user_id) = sessiondata.user_id {
                                     // Can happen if using back button
@@ -676,7 +676,7 @@ pub fn login_handler<L: Language + 'static>(
                                     now_unixtime,
                                     Some(user_id),
                                     Some(ip.clone()),
-                                    request.sessionid_hasher()
+                                    context.sessionid_hasher()
                                 );
                                 trans.insert_sessiondata(&sessiondata)?;
                             }
@@ -708,7 +708,7 @@ pub fn login_handler<L: Language + 'static>(
                     }
                 }
             } else {
-                let return_path = request.get_param("return_path");
+                let return_path = context.get_param("return_path");
                 immediate(show_form(None, None, return_path))
             }
         }))
@@ -737,8 +737,8 @@ impl<L: Language + 'static> Restricted<L> for Arc<dyn Handler<L>> {
         group_id: GroupId,
         style: Arc<dyn LayoutInterface<L>>,
     ) -> Self {
-        Arc::new(FnHandler::new(move |request, method, path, html| -> Result<Option<AResponse>> {
-            let session = request.session();
+        Arc::new(FnHandler::new(move |context, method, path, html| -> Result<Option<AResponse>> {
+            let session = context.session();
             // if ! session.client_has_sid() {
             //     todo!()
             // }
@@ -746,7 +746,7 @@ impl<L: Language + 'static> Restricted<L> for Arc<dyn Handler<L>> {
                 if let Some(mut sessiondata) = notime!{
                     "get_sessiondata_by_sessionid";
                     trans.get_sessiondata_by_sessionid(
-                        session.id(), request.sessionid_hasher())}?
+                        session.id(), context.sessionid_hasher())}?
                 {
                     if let Some(user_id) = sessiondata.user_id {
                         if trans.user_in_group(user_id, group_id)? {
@@ -769,18 +769,18 @@ impl<L: Language + 'static> Restricted<L> for Arc<dyn Handler<L>> {
                     let target = AUriLocal::from_str(
                         "/login",
                         Some(QueryString::new(
-                            [("return_path", request.path_str())])));
+                            [("return_path", context.path_str())])));
                     Ok(Some(Response::redirect_302(String::from(target)).into()))
                 }
                 LoginState::NotAllowed => {
                     show_popup_box_page(
-                        request, html, &style,
+                        context, html, &style,
                         PopupBoxKind::Error(HttpResponseStatusCode::Forbidden403),
                         html.str("Permission denied")?,
                         html.str("You are not allowed to access this resource.")?,
                     ).map(|o| o.map(AResponse::from))
                 }
-                LoginState::Allowed => self.call(request, method, path, html)
+                LoginState::Allowed => self.call(context, method, path, html)
             }
         }))
     }
@@ -793,12 +793,12 @@ pub fn language_handler<L: Language + 'static>(
 ) -> Arc<dyn Handler<L>> {
     Arc::new(ExactFnHandler::new(    
         move |
-        request: &AContext<L>,
+        context: &AContext<L>,
         _method: HttpRequestMethodSimple,
         _html: &HtmlAllocator
             | -> Result<AResponse>
         {
-            let lang = request.lang();
+            let lang = context.lang();
             // XX hack, must read query string from request, too?
             let target = format!("/{}.html", lang.as_str());
             Ok(Response::redirect_302(target).into())

@@ -7,7 +7,7 @@ use crate::{ahtml::{HtmlAllocator, AId, Node, TryCollectBody, att},
 
 pub trait ToHtml {
     fn to_html<L: Language>(
-        &self, html: &HtmlAllocator, request: &AContext<L>
+        &self, html: &HtmlAllocator, context: &AContext<L>
     ) -> Result<AId<Node>>;
 }
 
@@ -18,7 +18,7 @@ pub enum SubEntries {
 }
 impl ToHtml for SubEntries {
     fn to_html<L: Language>(
-        &self, _html: &HtmlAllocator, _request: &AContext<L>
+        &self, _html: &HtmlAllocator, _contex: &AContext<L>
     ) -> Result<AId<Node>> {
         todo!()
     }
@@ -31,16 +31,16 @@ pub struct NavEntry {
 }
 impl ToHtml for NavEntry {
     fn to_html<L: Language>(
-        &self, html: &HtmlAllocator, request: &AContext<L>
+        &self, html: &HtmlAllocator, context: &AContext<L>
     ) -> Result<AId<Node>> {
         let name = html.staticstr(self.name)?;
         html.li(
             [],
             [
-                if request.path().same_document_as_path_str(self.path) {
+                if context.path().same_document_as_path_str(self.path) {
                     name
                 } else {
-                    let rel = self.ppath().sub(request.path())?;
+                    let rel = self.ppath().sub(context.path())?;
                     html.a(
                         [att("href", rel.to_string())],
                         [name])?
@@ -58,11 +58,11 @@ pub struct Nav<'t>(pub &'t [NavEntry]);
 
 impl<'t> ToHtml for Nav<'t> {
     fn to_html<L: Language>(
-        &self, html: &HtmlAllocator, request: &AContext<L>
+        &self, html: &HtmlAllocator, context: &AContext<L>
     ) -> Result<AId<Node>> {
         Ok(html.ul(
             [att("class", "nav")],
-            self.0.iter().map(|naventry| naventry.to_html(html, request))
+            self.0.iter().map(|naventry| naventry.to_html(html, context))
                 .try_collect_body(html)?)?)
     }
 }

@@ -45,7 +45,7 @@ pub struct WebsiteLayout<L: Language + 'static> {
 impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
     fn page(
         &self,
-        request: &AContext<L>,
+        context: &AContext<L>,
         html: &HtmlAllocator,
         // Can't be preserialized HTML, must be string node:
         head_title: Option<AId<Node>>,
@@ -79,10 +79,10 @@ impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
                 html.div([att("class", "no_breadcrumb")], [])?
             };
 
-        let lang: L = request.lang();
+        let lang: L = context.lang();
         let nav_html =
             if let Some(nav) = AList(self.nav).get(&lang) {
-                nav.to_html(&html, request)?
+                nav.to_html(&html, context)?
             } else {
                 html.empty_node()?
             };
@@ -90,7 +90,7 @@ impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
             let mut items = html.new_vec_with_capacity(L::strs().len() as u32)?;
             for l in L::members() {
                 let s = html.string(l.as_str().to_uppercase())?;
-                let path = request.path();
+                let path = context.path();
                 let sibling_url = (self.sibling_from_path)(path); // Hack
                 items.push(html.li(
                     [],
@@ -200,7 +200,7 @@ impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
                                     [att("class", "footer")],
                                     [
                                         if let Some(last_modified) = last_modified {
-                                            let lang = request.lang();
+                                            let lang = context.lang();
                                             html.div(
                                                 [att("class", "last_modified")],
                                                 [html.string(
@@ -219,7 +219,7 @@ impl<L: Language> LayoutInterface<L> for WebsiteLayout<L> {
                                                 format!("Copyright © {} {}",
                                                         year_range(
                                                             2023,
-                                                            request.now().local_year(Utc)),
+                                                            context.now().local_year(Utc)),
                                                         self.copyright_owner))?])?,
                                     ])?,
                             ])?,

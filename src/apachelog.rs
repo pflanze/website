@@ -44,14 +44,14 @@ pub fn write_time(
 /// Write to access.log; Not sure yet about how to handle Error XX
 pub fn write_combined<L: Language>(
     outp: &mut impl Write,
-    request: &AContext<L>,
+    context: &AContext<L>,
     duration: Duration,
     aresponse: &mut AResponse, // temporarily swaps out ResponseBody and back
 ) -> Result<()> {
     // Write the time when the log entry is made, not when the
     // request started
     let now = SystemTime::now();
-    write!(outp, "{} - - [", request.client_ip())?;
+    write!(outp, "{} - - [", context.client_ip())?;
     write_time(outp, now)?;
     let len = {
         // Total HACK to get at the response body length, since those
@@ -71,11 +71,11 @@ pub fn write_combined<L: Language>(
         len
     };
     writeln!(outp, "] {:?} {} {} {:?} {:?} {duration:?}",
-             request.request_line(),
+             context.request_line(),
              aresponse.response.status_code,
              len.unwrap_or(0), // XX hack, is missing headers and compression and missing at all
-             request.referer().unwrap_or("-"),
-             request.user_agent().unwrap_or("-") // XX or what as alternative?
+             context.referer().unwrap_or("-"),
+             context.user_agent().unwrap_or("-") // XX or what as alternative?
     )?;
     outp.flush()?;
     Ok(())
@@ -90,7 +90,7 @@ pub fn write_combined<L: Language>(
 /// Write to error.log
 fn write_error<L: Language>(
     outp: &mut impl Write,
-    request: &AContext<L>,
+    context: &AContext<L>,
     duration: Duration,
     err: anyhow::Error,
 ) -> Result<()> {
@@ -98,15 +98,15 @@ fn write_error<L: Language>(
     write!(outp, "[")?;
     write_time(outp, now)?;
     writeln!(outp, "] [error] [client {}] {:?} {duration:?}: {err:#}",
-             request.client_ip(),
-             request.request_line())?;
+             context.client_ip(),
+             context.request_line())?;
     outp.flush()?;
     Ok(())
 }
 
 /// Panic log to stderr. Panics on errors logging to stderr.
 fn write_panic_stderr<L: Language>(
-    request: &AContext<L>,
+    context: &AContext<L>,
     duration: Duration
 ) {
     try_result!{
@@ -116,7 +116,7 @@ fn write_panic_stderr<L: Language>(
         // We need to feed stderr to a service like daemontools
         // anyway, hence don't print timestamps.
         writeln!(&mut outp, "[panic] handling {:?} after {duration:?}",
-                 request.request_line())?;
+                 context.request_line())?;
         outp.flush()?;
         Ok::<(), std::io::Error>(())
     }.expect("stderr always writable");
@@ -164,7 +164,7 @@ impl Logs {
 
 
 pub fn log_combined<L: Language, F>(
-    request: &AContext<L>,
+    context: &AContext<L>,
     handler: F
 ) -> AResponse
 where
@@ -184,7 +184,7 @@ where
                 {
                     let mut _logs = logs.lock().expect(
                         "if `write` panics then we are lost anyway");
-                    match write_combined(&mut _logs.access_log, request, elapsed, &mut response)
+                    match write_combined(&mut _logs.access_log, context, elapsed, &mut response)
                     {
                         Ok(()) => (),
                         Err(e) => eprintln!("WARNING: could not write to access log: {}", e)
@@ -196,7 +196,7 @@ where
                 {
                     let mut _logs = logs.lock().expect(
                         "if `write` panics then we are lost anyway");
-                    match write_error(&mut _logs.error_log, request, elapsed, err) {
+                    match write_error(&mut _logs.error_log, context, elapsed, err) {
                         Ok(()) => (),
                         Err(e) => eprintln!("WARNING: could not write to access log: {}", e)
                     }
@@ -207,7 +207,7 @@ where
             }
         },
         Err(payload) => {
-            write_panic_stderr(request, elapsed);
+            write_panic_stderr(context, elapsed);
             // The panic handler will print the payload contents
             panic::resume_unwind(payload);
         }

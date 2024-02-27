@@ -76,10 +76,10 @@ pub fn htmlresponse(
 /// having to pass up the ancestor parts of paths as they are being
 /// resolved in router lookups.)  XX why this here and not just have a method?
 pub fn request_resolve_relative<L: Language>(
-    request: &AContext<L>, position: PPath<&str>
+    context: &AContext<L>, position: PPath<&str>
 ) -> String {
     assert!(!position.is_absolute());
-    let requestpath = request.path(); // path only
+    let requestpath = context.path(); // path only
     dt!("request_resolve_relative", requestpath, position);
     pp!("request_resolve_relative",
         if requestpath.ends_with_slash() {
