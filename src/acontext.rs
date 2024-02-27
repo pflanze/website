@@ -51,7 +51,6 @@ impl CookieKey for LangKey {
     fn default_value(&self) -> &'static str { "en" }
 }
 
-/// todo: rename to AContext, it has more than request data now.
 pub struct AContext<'r, 's, 'h, L: Language> {
     // Fallback for host(): what this server listens on; ip:port or
     // domain:port or whatever is deemed suitable
