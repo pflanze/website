@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 pub mod ahtml;
 pub mod handler;
 pub mod arc_util;
@@ -58,6 +56,4 @@ pub mod cmpfilemeta;
 pub mod blog;
 pub mod ppath;
 pub mod dt;
-
-// ~website specific
 pub mod website_benchmark;
