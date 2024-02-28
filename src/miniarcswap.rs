@@ -15,8 +15,8 @@ pub struct MiniArcSwap<T> {
 
 impl<T> MiniArcSwap<T> {
     /// Wrap the payload with the MiniArcSwap.
-    pub fn new(payload: Arc<T>) -> MiniArcSwap<T> {
-        MiniArcSwap { payload: Mutex::new(payload) }
+    pub fn new(payload: Arc<T>) -> Self {
+        Self { payload: Mutex::new(payload) }
     }
     /// Get the payload. Use it however long you want. This call
     /// finishes almost immediately.
