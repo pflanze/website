@@ -106,8 +106,8 @@ impl<'r, 's, 'h, L: Language + Default> AContext<'r, 's, 'h, L> {
 
     /// Like the request part in Apache style Combined Log Format
     pub fn request_line(&self) -> String {
-        // Request does not appear to maintain the original request
-        // line; thus have to reconstruct it, bummer.
+        // `Request` does not appear to maintain the original request
+        // line string, thus have to reconstruct it.
         format!("{} {}",
                 self.request.method(),
                 self.request.raw_url())
