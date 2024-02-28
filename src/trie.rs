@@ -7,6 +7,7 @@ use crate::{util::{debug_stringlikes, btreemap_try_insert, btreemap_get_mut, fir
             myasstr::MyAsStr};
 use crate::{nodt as dt};
 
+#[allow(dead_code)]
 fn debug_path<P: Eq + MyAsStr>(
     path: &[P]
 ) -> Vec<&str> {

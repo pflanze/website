@@ -11,6 +11,7 @@ use crate::{ahtml::{Node, ASlice, HtmlAllocator, AId, Flat, att},
 /// doesn't use the same markup and needs tweaking.
 pub struct WikipediaStyle {}
 pub struct WikipediaStyleContext<'c> {
+    #[allow(dead_code)]
     config: &'c WikipediaStyle,
     spacer: AId<Node>,
     uparrow: AId<Node>,
@@ -91,6 +92,7 @@ impl<'c> StylingContextInterface<'c> for WikipediaStyleContext<'c> {
 pub struct BlogStyle {
 }
 pub struct BlogStyleContext<'c> {
+    #[allow(dead_code)]
     config: &'c BlogStyle,
     spacer: AId<Node>,
     uparrow: AId<Node>,

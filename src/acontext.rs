@@ -55,7 +55,6 @@ pub struct AContext<'r, 's, 'h, L: Language> {
     // Fallback for host(): what this server listens on; ip:port or
     // domain:port or whatever is deemed suitable
     listen_addr: &'r str, // ref might be valid for longer but we don't guarantee it
-    path_original: String,
     path: PPath<KString>,
     path_string: String,
     now: SystemTime,
@@ -93,7 +92,6 @@ impl<'r, 's, 'h, L: Language + Default> AContext<'r, 's, 'h, L> {
         // dbg!(&lang);
         Ok(AContext {
             listen_addr,
-            path_original,
             path,
             path_string,
             now: SystemTime::now(),
