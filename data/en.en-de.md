@@ -12,7 +12,7 @@ and GUI interfaces. I may also be able to take on work in embedded
 systems, data science and graphical programming.
 
 If possible and suitable I publish the products I'm developing as Open
-Source projects.
+Source projects. See [Projects](projects.html) for examples.
 
 I have experience mentoring developers.
 

@@ -12,7 +12,7 @@ und GUI-Schnittstellen. Ich kann möglicherweise auch Arbeit im Embedded-Bereich
 Data Science, oder grafischer Programmierung annehmen.
 
 Wenn möglich und passend publiziere ich die Produkte, die ich entwickle
-als Open-Source-Projekte.
+als Open-Source-Projekte. Sehen Sie [Projekte](projekte.html) für Beispiele.
 
 Ich habe Erfahrung im Mentoring von Entwicklern.
 

@@ -1,5 +1,8 @@
 # Projekte
 
+Hier einige Projekte an denen ich arbeite. Sehen Sie sich auch mein
+[GitHub Konto](https://github.com/pflanze/) für weitere Projekte an.
+
 ## Webseiten in Rust
 
 Ich habe diese Website in der Programmiersprache Rust entwickelt. Es

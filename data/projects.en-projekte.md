@@ -1,5 +1,8 @@
 # Projects
 
+Here are some projects that I'm working on. See my [GitHub
+account](https://github.com/pflanze/) for more.
+
 ## Websites in Rust
 
 I have implemented this website in the programming language Rust.  It
