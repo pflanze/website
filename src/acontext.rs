@@ -1,21 +1,24 @@
 use std::{net::{SocketAddr, IpAddr}, io::Write, time::SystemTime,
-          cell::Cell};
+          cell::Cell, borrow::Cow};
 
 use anyhow::{Result, anyhow};
 use blake3::Hasher;
 use kstring::KString;
-use rouille::{Request, HeadersIter, session::Session, input::priority_header_preferred};
+use rouille::{Request, HeadersIter,
+              session::Session,
+              input::priority_header_preferred};
 
 use crate::{ppath::PPath,
             http_request_method::HttpRequestMethod,
-            rouille_util::get_cookie,
-            language::Language};
+            rouille_util::{get_cookie, possibly_add_cookie_header, NewCookieValue},
+            language::Language, warn};
 
 
 pub trait CookieKey {
     fn as_str(&self) -> &'static str;
     fn default_value(&self) -> &'static str;
 }
+
 
 /// The present and desired cookie state for a key and val.
 pub struct Cookie<K: CookieKey>{
@@ -24,15 +27,19 @@ pub struct Cookie<K: CookieKey>{
     // for K==CookieKey overriding browser language setting.
     got: Option<KString>,
     // Cookie to be set in response. (OnceCell is unstable, hence use Cell)
-    out: Cell<Option<String>>,
+    out: Cell<NewCookieValue<String>>,
 }
 impl<K: CookieKey> Cookie<K> {
     pub fn new(key: K, got: Option<KString>) -> Self {
         Self {
             key,
             got,
-            out: Cell::new(None)
+            out: Cell::new(NewCookieValue::Unchanged)
         }
+    }
+
+    pub fn key(&self) -> &str {
+        self.key.as_str()
     }
 
     pub fn value(&self) -> &str {
@@ -42,8 +49,24 @@ impl<K: CookieKey> Cookie<K> {
             self.key.default_value()
         }
     }
+
+    /// Claims the value, afterwards the slot is empty again!
+    pub fn take_out_value(&self) -> NewCookieValue<String> {
+        self.out.replace(NewCookieValue::Unchanged)
+    }
+
+    /// max_age is the Set-Cookie Max-Age value in seconds
+    pub fn set(&self, value: String, max_age: i32) {
+        self.out.set(NewCookieValue::Updated(value, max_age))
+    }
+
+    pub fn clear(&self) {
+        self.out.set(NewCookieValue::Deleted);
+    }
 }
 
+
+const LANG_COOKIE_MAX_AGE_SECONDS: i32 = 60*60*24*30*2;
 
 pub struct LangKey;
 impl CookieKey for LangKey {
@@ -62,7 +85,11 @@ pub struct AContext<'r, 's, 'h, L: Language> {
     request: &'r Request,
     session: &'r Session<'s>,
     lang: Option<L>,
-    lang_cookie: Cookie<LangKey>, // mostly just for the out bit; `lang` holds the real thing
+    // lang_cookie: mostly just for the out bit; `lang` holds the real
+    // thing. Private and no setter since the only place where this is
+    // set (currently) is in the `new` constructor. Wouldn't even need
+    // the interior mutability.
+    lang_cookie: Cookie<LangKey>,
     // A `blake3::Hasher` that has already been filled with some secret data.
     sessionid_hasher: &'h Hasher,
 }
@@ -80,16 +107,37 @@ impl<'r, 's, 'h, L: Language + Default> AContext<'r, 's, 'h, L> {
         let path_string = path.to_string();
         // let headers = request.headers();  -- iterator
         let method = HttpRequestMethod::from_str(request.method())?;
-        let lang_cookie = get_cookie(request, LangKey.as_str()).map(KString::from_ref);
-        let lang: Option<L> =
-            lang_from_path(&path)
-            .or_else(|| lang_cookie.as_ref().and_then(|s| L::maybe_from(s.as_str())))
-            .or_else(|| request.header("Accept-Language").and_then(|s| {
+
+        let lang_cookie: Option<KString> = get_cookie(request, LangKey.as_str())
+            .transpose()?
+            .map(KString::from);
+
+        let path_lang: Option<L> = lang_from_path(&path);
+        let cookie_lang: Option<L> = lang_cookie.as_ref().and_then(
+            |s| L::maybe_from(s.as_str()));
+        let browser_lang: Option<L> = request.header("Accept-Language").and_then(|s| {
                 let ss = L::strs();
                 priority_header_preferred(s, ss.iter().cloned())
                     .map(|i| L::maybe_from(ss[i]).expect("Lang::strs() holds it"))
-            }));
+        });
+        let lang: Option<L> = path_lang.or(cookie_lang).or(browser_lang);
         // dbg!(&lang);
+
+        let lang_cookie = Cookie::new(LangKey, lang_cookie);
+
+        // Set cookie, if lang differs from it and clearing the cookie
+        // isn't the solution.
+        if let Some(langval) = lang {
+            if lang != cookie_lang {
+                if lang == browser_lang {
+                    // don't need a cookie, the default is fine without
+                    lang_cookie.clear();
+                } else {
+                    lang_cookie.set(langval.as_str().into(), LANG_COOKIE_MAX_AGE_SECONDS);
+                }
+            }
+        }
+
         Ok(AContext {
             listen_addr,
             path,
@@ -100,8 +148,17 @@ impl<'r, 's, 'h, L: Language + Default> AContext<'r, 's, 'h, L> {
             session,
             sessionid_hasher,
             lang,
-            lang_cookie: Cookie::new(LangKey, lang_cookie),
+            lang_cookie,
         })
+    }
+    
+    /// Create any response headers that are warranted given the
+    /// request or changes applied to self.
+    pub fn set_headers(&mut self, headers: &mut Vec<(Cow<'static, str>, Cow<'static, str>)>) {
+        possibly_add_cookie_header(headers,
+                                   self.lang_cookie.key(),
+                                   self.lang_cookie.take_out_value(),
+                                   &self.lang_cookie.got);
     }
 
     /// Like the request part in Apache style Combined Log Format
@@ -173,5 +230,16 @@ impl<'r, 's, 'h, L: Language + Default> AContext<'r, 's, 'h, L> {
 
     pub fn lang(&self) -> L {
         self.lang.unwrap_or_default()
+    }
+}
+
+impl<'r, 's, 'h, L: Language> Drop for AContext<'r, 's, 'h, L> {
+    fn drop(&mut self) {
+        match self.lang_cookie.take_out_value() {
+            NewCookieValue::Unchanged => (),
+            x => {
+                warn!("drop: AContext lang_cookie unused action: {x:?}");
+            }
+        }
     }
 }

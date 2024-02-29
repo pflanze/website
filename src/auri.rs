@@ -6,9 +6,8 @@
 //! Also, I may want relative paths, too?
 
 use kstring::KString;
-use pct_str::{PctString, URIReserved};
 
-use crate::ppath::PPath;
+use crate::{ppath::PPath, url_encoding::url_encode};
 
 
 // ------------------------------------------------------------------
@@ -18,11 +17,6 @@ use crate::ppath::PPath;
 /// serialized representation.
 #[derive(Debug)]
 pub struct QueryString(Vec<(KString, KString)>);
-
-fn url_encode(s: &str) -> String {
-    let p = PctString::encode(s.chars(), URIReserved);
-    p.to_string()
-}
 
 impl From<&QueryString> for String {
     fn from(q: &QueryString) -> Self {

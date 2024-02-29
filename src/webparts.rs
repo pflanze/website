@@ -54,9 +54,9 @@ pub fn server_handler<'t, L: Language + Default>(
         time_guard!("server_handler"); // timings including infrastructure cost
         session(request, "sid", 3600 /*sec*/, |session| {
             let aresponse = in_threadpool(threadpool.clone(), || -> AResponse {
-                let okhandler = |context| -> AResponse {
+                let okhandler = |context: &AContext<L>| -> AResponse {
                     log_combined(
-                        &context,
+                        context,
                         || -> (Arc<Mutex<Logs>>, anyhow::Result<AResponse>) {
                             let method = context.method();
                             let unimplemented = |methodname| {
@@ -75,12 +75,12 @@ pub fn server_handler<'t, L: Language + Default>(
                                             &KString::from_string(lchost))
                                         {
                                             return hostrouter.handle_request(
-                                                &context, simplemethod, allocator)
+                                                context, simplemethod, allocator)
                                         }
                                     }
                                     if let Some(fallback) = &hostsrouter.fallback {
                                         return fallback.handle_request(
-                                            &context, simplemethod, allocator)
+                                            context, simplemethod, allocator)
                                     }
                                 }
                                 HttpRequestMethodGrouped::Document(documentmethod) => {
@@ -107,7 +107,11 @@ pub fn server_handler<'t, L: Language + Default>(
                 };
                 match AContext::new(request, &listen_addr, session, &sessionid_hasher,
                                     &lang_from_path) {
-                    Ok(context) => okhandler(context),
+                    Ok(mut context) => {
+                        let mut aresponse= okhandler(&context);
+                        context.set_headers(&mut aresponse.response.headers);
+                        aresponse
+                    }
                     Err(e) => {
                         warn!("{e}");
                         errorpage_from_status(
