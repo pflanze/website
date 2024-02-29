@@ -5,7 +5,7 @@ use rouille::Request;
 use rouille::input;
 
 use crate::url_encoding::UrlDecodingError;
-use crate::url_encoding::url_decode;
+use crate::url_encoding::{url_decode, url_encode};
 use crate::warn;
 
 #[derive(Debug)]
@@ -71,8 +71,7 @@ pub fn possibly_add_cookie_header<S: AsRef<str>>(
         }
         NewCookieValue::Updated(s, age) => {
             let h = format!("{key}={}; Max-Age={age}; Path=/; HttpOnly",
-                            // XXX escaping? !
-                            s.as_ref());
+                            url_encode(s.as_ref()));
             add(h)
         }
     }
