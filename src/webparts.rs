@@ -1,7 +1,7 @@
 
 //! Components making up a website, parameterized via a trait.
 
-use std::{path::PathBuf,
+use std::{path::{PathBuf, Path},
           sync::{Arc, Mutex},
           time::{SystemTime, Instant, Duration},
           fmt::Debug};
@@ -21,7 +21,7 @@ use crate::{acontext::AContext,
             webutils::{htmlresponse, request_resolve_relative, errorpage_from_status},
             http_response_status_codes::HttpResponseStatusCode,
             markdown::MarkdownFile,
-            handler::{Handler, ExactFnHandler, FnHandler},
+            handler::{Handler, ExactFnHandler, FnHandler, FileHandler},
             blog::{Blog, BlogNode, BlogPostIndex},
             ppath::PPath,
             trie::TrieIterReportStyle,
@@ -312,6 +312,46 @@ pub fn markdownpage_handler<L: Language + 'static>(
     ))
 }
 
+// Mess. Probably did some other versions with similar code, todo:
+// proper factoring.
+fn generate_markdown_page<L: Language + 'static>(
+    base_path: &Path,
+    path_rest_string: &str,
+    context: &AContext<L>,
+    style: Arc<dyn LayoutInterface<L>>,
+    html: &HtmlAllocator,
+) -> Result<Option<Response>> {
+    let mut fspath = path_append(base_path, &base(&path_rest_string).expect(
+        "succeeds because we know it has a html suffix from above"));
+    if ! fspath.set_extension("md") {
+        bail!("missing file name? not possible?")
+    }
+    // warn!("have fspath = {fspath:?}");
+    try_result!{
+        let not_found = || {
+            // XX todo: return styled 404, not generic error page
+            Ok(Some(errorpage_from_status(HttpResponseStatusCode::NotFound404)))
+        };
+        match fspath.metadata() {
+            Ok(stat) => 
+                if ! stat.is_file() {
+                    warn!("not a file: {:?}", &fspath);
+                    return not_found();
+                },
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::NotFound => return not_found(),
+                _ => {
+                    warn!("Error getting metadata: {e:?} \
+                           for path {:?}", &fspath);
+                    // but return 404 anyway, ok?
+                    return not_found();
+                }
+            }
+        }
+        Ok(Some(markdownprocessor(style, context, fspath, html)?))
+    }
+}
+
 /// Serve markdown files from sub-paths from the given `dir_path`;
 /// sub-paths can contain directory segments. Only requests with path
 /// suffix `.html` are being served (otherwise the handler declines
@@ -329,7 +369,7 @@ pub fn markdowndir_handler<L: Language + 'static>(
     style: Arc<dyn LayoutInterface<L>>
 ) -> Arc<dyn Handler<L>>
 {
-    let path = PathBuf::from(dir_path);
+    let base_path = PathBuf::from(dir_path);
     Arc::new(FnHandler::new(
         move |
         context: &AContext<L>,
@@ -361,37 +401,56 @@ pub fn markdowndir_handler<L: Language + 'static>(
                 response.map(|v| v.map(|r| r.to_aresponse(Some(target))))
             };
             // /COPY-PASTE
-            let mut fspath = path_append(&path, &base(&path_rest_string).expect(
-                "succeeds because we know it has a html suffix from above"));
-            if ! fspath.set_extension("md") {
-                bail!("missing file name? not possible?")
-            }
-            // warn!("have fspath = {fspath:?}");
-            delayed(try_result!{
-                let not_found = || {
-                    // XX todo: return styled 404, not generic error page
-                    Ok(Some(errorpage_from_status(HttpResponseStatusCode::NotFound404)))
-                };
-                match fspath.metadata() {
-                    Ok(stat) => 
-                        if ! stat.is_file() {
-                            warn!("not a file: {:?}", &fspath);
-                            return not_found();
-                        },
-                    Err(e) => match e.kind() {
-                        std::io::ErrorKind::NotFound => return not_found(),
-                        _ => {
-                            warn!("Error getting metadata: {e:?} \
-                                   for path {:?}", &fspath);
-                            // but return 404 anyway, ok?
-                            return not_found();
-                        }
-                    }
-                }
-                Ok(Some(markdownprocessor(style.clone(), context, fspath, html)?))
-            })
+            delayed(generate_markdown_page(&base_path,
+                                           &path_rest_string,
+                                           context,
+                                           style.clone(),
+                                           html))
         }
     ))
+}
+
+/// Serve markdown and static files from sub-paths from the given
+/// `dir_path`; sub-paths can contain directory segments. Requests
+/// with path suffix `.html` are handled by looking for a file with
+/// the suffix `md` in its place, other files are served as static
+/// files.
+
+/// There is no directory listing, but also no delivery delay, thus
+/// this handler is *not* suitable for serving unlisted files!
+pub fn mixed_dir_handler<L: Language + 'static>(
+    dir_path: &str,
+    style: Arc<dyn LayoutInterface<L>>
+) -> Arc<dyn Handler<L>>
+{
+    let base_path = PathBuf::from(dir_path);
+    let file_handler = FileHandler::new(&base_path);
+    Arc::new(FnHandler::new(
+        move |
+        context: &AContext<L>,
+        method: HttpRequestMethodSimple,
+        path_rest: &PPath<KString>,
+        html: &HtmlAllocator
+            | -> Result<Option<AResponse>>
+        {
+            if method.is_post() {
+                bail!("can't POST to a mixed dir"); // currently, anyway
+            }
+            if ! path_rest.is_canonical() {
+                bail!("requested path rest isn't canonical: {:?}",
+                      path_rest.to_string())
+            }
+            let path_rest_string = path_rest.to_string();
+            if extension_eq(&path_rest_string, "html") {
+                generate_markdown_page(&base_path,
+                                       &path_rest_string,
+                                       context,
+                                       style.clone(),
+                                       html).map(|r| r.map(|r| r.into()))
+            } else {
+                file_handler.call(context, method, path_rest, html)
+            }
+        }))
 }
 
 
