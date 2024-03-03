@@ -312,18 +312,18 @@ pub fn markdownpage_handler<L: Language + 'static>(
     ))
 }
 
-// Serve markdown files from sub-paths from the given `dir_path`;
-// sub-paths can contain directory segments. Only requests with path
-// suffix `.html` are being served (otherwise the handler declines
-// handling), and a file with suffix `.md` in it's place is read if
-// available (otherwise a 404 result is returned).
+/// Serve markdown files from sub-paths from the given `dir_path`;
+/// sub-paths can contain directory segments. Only requests with path
+/// suffix `.html` are being served (otherwise the handler declines
+/// handling), and a file with suffix `.md` in it's place is read if
+/// available (otherwise a 404 result is returned).
 
-// There is no directory listing, and delivery is delayed by around
-// 0.2 seconds to hide potential side channels that would enable path
-// discovery as well as to make brute forcing harder. This handler is
-// thus suitable to host unlisted files only meant to be reachable via
-// an explicitly shared URL. You still need to choose sufficiently
-// random sub-paths for them to evade brute forcing!
+/// There is no directory listing, and delivery is delayed by around
+/// 0.2 seconds to hide potential side channels that would enable path
+/// discovery as well as to make brute forcing harder. This handler is
+/// thus suitable to host unlisted files only meant to be reachable via
+/// an explicitly shared URL. You still need to choose sufficiently
+/// random sub-paths for them to evade brute forcing!
 pub fn markdowndir_handler<L: Language + 'static>(
     dir_path: &str,
     style: Arc<dyn LayoutInterface<L>>
