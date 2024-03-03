@@ -5,6 +5,8 @@ use kstring::KString;
 use scoped_thread_pool;
 use website::access_control::db::access_control_transaction;
 use website::access_control::statements_and_methods::DO_WARN_THREAD;
+use website::access_control::transaction::TransactError;
+use website::access_control::types::GroupId;
 use website::alist::AList;
 use website::apachelog::Logs;
 use website::acontext::AContext;
@@ -28,7 +30,7 @@ use website::nav::{Nav, NavEntry, SubEntries};
 use website::router::MultiRouter;
 use website::util::{log_basedir, getenv_or, getenv, xgetenv};
 use website::webparts::{markdownpage_handler, blog_handler, server_handler,
-                        login_handler, Restricted, markdowndir_handler, language_handler};
+                        login_handler, Restricted, markdowndir_handler, language_handler, mixed_dir_handler};
 use website::website_layout::WebsiteLayout;
 use website::handler::Handler;
 use website::{website_benchmark, warn};
@@ -151,6 +153,12 @@ fn sibling_from_path(path: &PPath<KString>) -> Option<String> {
     Some(format!("{sibling}.html"))
 }
 
+fn get_group_id(group_name: &str) -> Result<GroupId, TransactError<anyhow::Error>> {
+    access_control_transaction(false, |trans| -> Result<_> {
+        Ok(trans.xget_group_by_groupname(group_name)?.id.expect("present from db"))
+    })
+}
+
 fn main() -> Result<()> {
     DO_WARN_THREAD.store(true, std::sync::atomic::Ordering::SeqCst);
 
@@ -207,9 +215,8 @@ fn main() -> Result<()> {
             }}),
         sibling_from_path: Box::new(sibling_from_path),
     });
-    let preview_groupid = access_control_transaction(false, |trans| -> Result<_> {
-        Ok(trans.xget_group_by_groupname("preview")?.id.expect("present from db"))
-    })?;
+    let preview_groupid = get_group_id("preview")?;
+    let fellowship_groupid = get_group_id("fellowship")?;
     let mut router : MultiRouter<Arc<dyn Handler<Lang>>> = MultiRouter::new();
     router
         .add("/login", login_handler(style.clone()))
@@ -237,6 +244,8 @@ fn main() -> Result<()> {
             Blog::open(in_datadir("preview"), &ALLOCPOOL, footnotestyle)?,
             style.clone())
              .restricted_to_group(preview_groupid, style.clone()))
+        .add("/fellowship", mixed_dir_handler("www-data/fellowship", style.clone())
+            .restricted_to_group(fellowship_groupid, style.clone()))
         .add("/p", markdowndir_handler(&in_datadir("p"), style.clone()))
         ;
     if let Some(wwwdir) = wwwdir {
