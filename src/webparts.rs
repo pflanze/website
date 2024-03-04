@@ -688,7 +688,7 @@ pub fn login_handler<L: Language + 'static>(
                         })?;
                         
                             
-                        let target = inp.return_path.unwrap_or("/".into());
+                        let target = inp.return_path.unwrap_or_else(|| "/".into());
                         // *Does* it have to sleep when succeeding? It
                         // does so that attackers cannot potentially
                         // interpret the result early.
