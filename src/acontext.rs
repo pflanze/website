@@ -6,7 +6,7 @@ use blake3::Hasher;
 use kstring::KString;
 use rouille::{Request, HeadersIter,
               session::Session,
-              input::priority_header_preferred};
+              input::priority_header_preferred, Response};
 
 use crate::{ppath::PPath,
             http_request_method::HttpRequestMethod,
@@ -212,6 +212,17 @@ impl<'r, 's, 'h, L: Language + Default> AContext<'r, 's, 'h, L> {
 
     pub fn header(&self, key: &str) -> Option<&str> { self.request.header(key) }
     pub fn headers(&self) -> HeadersIter { self.request.headers() }
+
+    pub fn redirect_302_with_query(&self, path: &PPath<KString>) -> Response {
+        // XX more testing?  test foo + bar = bar not foo/bar !
+        let mut target = self.path().add(path).to_string();
+        let querystr = self.request().raw_query_string();
+        if ! querystr.is_empty() {
+            target.push('?');
+            target.push_str(querystr);
+        }
+        Response::redirect_302(target)
+    }
 
     pub fn request(&self) -> &Request { self.request }
     pub fn session(&self) -> &Session { &self.session }
