@@ -862,8 +862,7 @@ pub fn language_handler<L: Language + 'static>(
             | -> Result<AResponse>
         {
             let lang = context.lang();
-            // XX hack, must read query string from request, too?
-            let target = format!("/{}.html", lang.as_str());
-            Ok(Response::redirect_302(target).into())
+            let target = PPath::from_str(&format!("/{}.html", lang.as_str()));
+            Ok(context.redirect_302_with_query(&target).into())
         }))
 }
