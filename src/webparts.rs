@@ -35,7 +35,7 @@ use crate::{acontext::AContext,
             time_util::{self, now_unixtime},
             ipaddr_util::IpAddrOctets,
             auri::{AUriLocal, QueryString},
-            notime, path::{path_append, extension_eq, base}, language::Language};
+            notime, path::{path_append, extension_eq, base, suffix}, language::Language};
 use crate::{try_result, warn, nodt, time_guard};
 
 // ------------------------------------------------------------------
@@ -312,43 +312,120 @@ pub fn markdownpage_handler<L: Language + 'static>(
     ))
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum DirIndexMode {
+    /// No directory indexing, if a path to a directory is given, the
+    /// handler will decline.
+    None,
+    /// If the path goes to a directory, look for an `index.md` file,
+    /// if present, redirect to add a trailing `/` unless already
+    /// present, then serve as markdown.
+    IndexMd,
+    // Future?: `Dirlisting`, show a directory listing. Or provide
+    // that in a different type?
+}
+
+/// Generate a markdown page from a file with suffix `.md` if
+/// `path_rest` ends with suffix `.html`, or if `indexing_mode` is
+/// `IndexMd` and `path_rest` goes to a directory then looks for an
+/// `index.md` file and serves that "after" doing a redirect to add a
+/// `/`, or otherwise decline via `Ok(None)`.
 // Mess. Probably did some other versions with similar code, todo:
 // proper factoring.
 fn generate_markdown_page<L: Language + 'static>(
     base_path: &Path,
-    path_rest_string: &str,
+    path_rest: &PPath<KString>,
+    indexing_mode: DirIndexMode,
     context: &AContext<L>,
     style: Arc<dyn LayoutInterface<L>>,
     html: &HtmlAllocator,
 ) -> Result<Option<Response>> {
-    let mut fspath = path_append(base_path, &base(&path_rest_string).expect(
-        "succeeds because we know it has a html suffix from above"));
-    if ! fspath.set_extension("md") {
-        bail!("missing file name? not possible?")
-    }
-    // warn!("have fspath = {fspath:?}");
-    try_result!{
-        let not_found = || {
-            // XX todo: return styled 404, not generic error page
-            Ok(Some(errorpage_from_status(HttpResponseStatusCode::NotFound404)))
+    let suffix =
+        if let Some(last) = path_rest.segments().last() {
+            suffix(last)
+        } else {
+            None
         };
-        match fspath.metadata() {
-            Ok(stat) => 
-                if ! stat.is_file() {
-                    warn!("not a file: {:?}", &fspath);
-                    return not_found();
-                },
-            Err(e) => match e.kind() {
-                std::io::ErrorKind::NotFound => return not_found(),
-                _ => {
-                    warn!("Error getting metadata: {e:?} \
-                           for path {:?}", &fspath);
-                    // but return 404 anyway, ok?
-                    return not_found();
+    let has_html_suffix = suffix.and_then(|s| Some(s == "html")).unwrap_or(false);
+    let path_rest_string = path_rest.to_string();
+    if has_html_suffix {
+        let mut fspath = path_append(base_path, &base(&path_rest_string).expect(
+            "succeeds because we know it has a html suffix from above"));
+        if ! fspath.set_extension("md") {
+            bail!("missing file name? not possible?")
+        }
+        // warn!("have fspath = {fspath:?}");
+        try_result!{
+            let not_found = || {
+                // XX todo: return styled 404, not generic error page
+                Ok(Some(errorpage_from_status(HttpResponseStatusCode::NotFound404)))
+            };
+            match fspath.metadata() {
+                Ok(stat) =>
+                    if stat.is_file() {
+                        Ok(Some(markdownprocessor(style, context, fspath, html)?))
+                    } else {
+                        warn!("found {fspath:?} but it's not a file, thus report 404");
+                        not_found()
+                    }
+                Err(e) => match e.kind() {
+                    std::io::ErrorKind::NotFound => return not_found(),
+                    _ => {
+                        warn!("Error getting metadata: {e:?} \
+                               for path {:?}", &fspath);
+                        // but return 404 anyway, ok?
+                        not_found()
+                    }
                 }
             }
         }
-        Ok(Some(markdownprocessor(style, context, fspath, html)?))
+    } else {
+        // no html suffix
+        match indexing_mode {
+            DirIndexMode::None => Ok(None),
+            DirIndexMode::IndexMd => {
+                let mut fspath = path_append(base_path, &path_rest_string);
+                match fspath.metadata() {
+                    Ok(stat) =>
+                        if stat.is_file() {
+                            // path is not .html nor directory, so we won't serve it
+                            Ok(None)
+                        } else if stat.is_dir() {
+                            fspath.push("index.md");
+                            match fspath.metadata() {
+                                Ok(stat_index_md) =>
+                                    if stat_index_md.is_file() {
+                                        if path_rest.ends_with_slash() {
+                                            Ok(Some(markdownprocessor(
+                                                style, context, fspath, html)?))
+                                        } else {
+                                            Ok(Some(
+                                                context.redirect_302_with_query(
+                                                    &context.path().as_dir())))
+                                        }
+                                    } else {
+                                        warn!("found item {:?} but it's not a file, ignoring",
+                                              &fspath);
+                                        Ok(None)
+                                    },
+                                Err(e) => {
+                                    warn!("Error getting metadata: {e:?} \
+                                           for path {:?}", &fspath);
+                                    Ok(None)
+                                }
+                            }
+                        } else {
+                            warn!("not a file nor dir: {:?}", &fspath);
+                            Ok(None)
+                        }
+                    Err(e) => {
+                        warn!("Error getting metadata: {e:?} \
+                               for path {:?}", &fspath);
+                        Ok(None)
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -378,8 +455,12 @@ pub fn markdowndir_handler<L: Language + 'static>(
         html: &HtmlAllocator
             | -> Result<Option<AResponse>>
         {
-            let path_rest_string = path_rest.to_string();
-            if ! extension_eq(&path_rest_string, "html") {
+            if let Some(last) = path_rest.segments().last() {
+                if ! extension_eq(&last, "html") {
+                    return Ok(None);
+                }
+            } else {
+                // no segment, no suffix, no serving.
                 return Ok(None);
             }
             if method.is_post() {
@@ -402,7 +483,8 @@ pub fn markdowndir_handler<L: Language + 'static>(
             };
             // /COPY-PASTE
             delayed(generate_markdown_page(&base_path,
-                                           &path_rest_string,
+                                           path_rest,
+                                           DirIndexMode::None,
                                            context,
                                            style.clone(),
                                            html))
@@ -416,8 +498,9 @@ pub fn markdowndir_handler<L: Language + 'static>(
 /// the suffix `md` in its place, other files are served as static
 /// files.
 
-/// There is no directory listing, but also no delivery delay, thus
-/// this handler is *not* suitable for serving unlisted files!
+/// There is no directory listing (but it does try to serve `index.md`
+/// for directories), but also no delivery delay, thus this handler is
+/// *not* suitable for serving unlisted files!
 pub fn mixed_dir_handler<L: Language + 'static>(
     dir_path: &str,
     style: Arc<dyn LayoutInterface<L>>
@@ -440,16 +523,16 @@ pub fn mixed_dir_handler<L: Language + 'static>(
                 bail!("requested path rest isn't canonical: {:?}",
                       path_rest.to_string())
             }
-            let path_rest_string = path_rest.to_string();
-            if extension_eq(&path_rest_string, "html") {
-                generate_markdown_page(&base_path,
-                                       &path_rest_string,
-                                       context,
-                                       style.clone(),
-                                       html).map(|r| r.map(|r| r.into()))
-            } else {
-                file_handler.call(context, method, path_rest, html)
-            }
+            let optresponse = generate_markdown_page(&base_path,
+                                                     path_rest,
+                                                     DirIndexMode::IndexMd,
+                                                     context,
+                                                     style.clone(),
+                                                     html)?;
+            Ok(match optresponse {
+                Some(response) => Some(response.into()),
+                None => file_handler.call(context, method, path_rest, html)?
+            })
         }))
 }
 
