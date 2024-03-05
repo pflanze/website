@@ -408,11 +408,13 @@ defn_with_statement!(with_select_sessiondata_by_sessionid,
                       where sessionid_hash = ?");
 impl<'t> Transaction<'t> {
     pub fn get_sessiondata_by_sessionid_hash(
-        &mut self, sessionid_hash: &[u8]
+        &mut self, sessionid_hash: &Hash
     ) -> Result<Option<SessionData>, UniqueError>
     {
         self.connection_and_statements.with_select_sessiondata_by_sessionid(|sth| {
-            get_unique_by("select_sessiondata_by_sessionid", sth, [sessionid_hash].as_ref())
+            get_unique_by("select_sessiondata_by_sessionid",
+                          sth,
+                          [sessionid_hash.as_bytes().as_ref()].as_ref())
         })
     }
 
@@ -422,7 +424,7 @@ impl<'t> Transaction<'t> {
         &mut self, sessionid: &str, hasher: Hasher
     ) -> Result<Option<SessionData>, UniqueError>
     {
-        self.get_sessiondata_by_sessionid_hash(sessionid_hash(hasher, sessionid).as_bytes())
+        self.get_sessiondata_by_sessionid_hash(&sessionid_hash(hasher, sessionid))
     }
 }
 
