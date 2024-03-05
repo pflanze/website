@@ -2,6 +2,7 @@
 //! Common Log Format) for access logs (Apache style), as per
 //! <https://httpd.apache.org/docs/2.4/logs.html>.
 
+use std::borrow::Cow;
 use std::mem::swap;
 use std::panic;
 use std::sync::{Arc, Mutex};
@@ -12,6 +13,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc, Datelike, Timelike};
 use rouille::ResponseBody;
 
+use crate::access_control::get_user_from_session_id;
 use crate::acontext::AContext;
 use crate::aresponse::AResponse;
 use crate::date_format::months_short;
@@ -51,7 +53,19 @@ pub fn write_combined<L: Language>(
     // Write the time when the log entry is made, not when the
     // request started
     let now = SystemTime::now();
-    write!(outp, "{} - - [", context.client_ip())?;
+    let user =
+        if context.session().client_has_sid() {
+            let session_id = context.session_id();
+            if let Some(user) = get_user_from_session_id(
+                session_id, context.sessionid_hasher())? {
+                Cow::from(format!("{:?}", user.username))
+            } else {
+                Cow::from("-")
+            }
+        } else {
+            Cow::from("-")
+        };
+    write!(outp, "{} - {user} [", context.client_ip())?;
     write_time(outp, now)?;
     let len = {
         // Total HACK to get at the response body length, since those
