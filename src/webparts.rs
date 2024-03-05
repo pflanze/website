@@ -29,7 +29,7 @@ use crate::{acontext::AContext,
             hostrouter::HostsRouter,
             http_request_method::{HttpRequestMethodGrouped, HttpRequestMethodSimple},
             access_control::{check_username_password, CheckAccessErrorKind,
-                             db::access_control_transaction, types::{SessionData, GroupId}},
+                             db::access_control_transaction, types::{SessionData, GroupId}, statements_and_methods::sessionid_hash},
             in_threadpool::in_threadpool,
             aresponse::{AResponse, ToAResponse},
             time_util::{self, now_unixtime},
@@ -783,12 +783,12 @@ pub fn login_handler<L: Language + 'static>(
                         let session_id = context.session_id();
                         let now_unixtime = now_unixtime();
                         let ip = context.client_ip().octets();
+                        let hash = sessionid_hash(context.sessionid_hasher(), session_id);
                         access_control_transaction(true, |trans| -> Result<()> {
                             // Check if the session is already active
                             // (possible if data was stored before logging in)
                             if let Some(mut sessiondata) =
-                                trans.get_sessiondata_by_sessionid(
-                                    session_id, context.sessionid_hasher())?
+                                trans.get_sessiondata_by_sessionid_hash(&hash)?
                             {
                                 if let Some(prev_user_id) = sessiondata.user_id {
                                     // Can happen if using back button
@@ -888,11 +888,11 @@ impl<L: Language + 'static> Restricted<L> for Arc<dyn Handler<L>> {
             // if ! session.client_has_sid() {
             //     todo!()
             // }
+            let hash = sessionid_hash(context.sessionid_hasher(), session.id());
             let state = access_control_transaction(true, move |trans| -> Result<_> {
                 if let Some(mut sessiondata) = notime!{
                     "get_sessiondata_by_sessionid";
-                    trans.get_sessiondata_by_sessionid(
-                        session.id(), context.sessionid_hasher())}?
+                    trans.get_sessiondata_by_sessionid_hash(&hash)}?
                 {
                     if let Some(user_id) = sessiondata.user_id {
                         if trans.user_in_group(user_id, group_id)? {

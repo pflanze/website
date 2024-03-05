@@ -418,14 +418,10 @@ impl<'t> Transaction<'t> {
         })
     }
 
-    /// Note: to avoid having to re-hash, better use `sessionid_hash`
-    /// and `get_sessiondata_by_sessionid_hash` separately.
-    pub fn get_sessiondata_by_sessionid(
-        &mut self, sessionid: &str, hasher: Hasher
-    ) -> Result<Option<SessionData>, UniqueError>
-    {
-        self.get_sessiondata_by_sessionid_hash(&sessionid_hash(hasher, sessionid))
-    }
+    // NOTE: to avoid having to re-hash while re-trying transactions,
+    // better use `sessionid_hash` and
+    // `get_sessiondata_by_sessionid_hash` separately, thus do not
+    // provide a `get_sessiondata_by_sessionid`.
 }
 
 defn_with_statement!(with_update_sessiondata,
