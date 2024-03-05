@@ -18,7 +18,7 @@ use crate::date_format::months_short;
 use crate::easy_fs::open_log_output;
 use crate::http_response_status_codes::HttpResponseStatusCode;
 use crate::language::Language;
-use crate::try_result;
+use crate::{try_result, warn};
 use crate::webutils::errorpage_from_status;
 
 static MONTHS: &[&str; 12] = months_short(crate::lang_en_de::Lang::En);
@@ -187,7 +187,7 @@ where
                     match write_combined(&mut _logs.access_log, context, elapsed, &mut response)
                     {
                         Ok(()) => (),
-                        Err(e) => eprintln!("WARNING: could not write to access log: {}", e)
+                        Err(e) => warn!("could not write to access log: {e:#}")
                     }
                 }
                 response
@@ -198,7 +198,7 @@ where
                         "if `write` panics then we are lost anyway");
                     match write_error(&mut _logs.error_log, context, elapsed, err) {
                         Ok(()) => (),
-                        Err(e) => eprintln!("WARNING: could not write to access log: {}", e)
+                        Err(e) => warn!("could not write to error log: {e:#}")
                     }
                 }
                 // XX btw expects that the requester accepts HTML. Not always OK?

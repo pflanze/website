@@ -19,14 +19,14 @@ macro_rules! nopp {
 
 #[macro_export]
 macro_rules! warn {
-    ($formatstr:expr $(,$arg:expr)*) => {
+    ($formatstr:expr $(,$arg:expr)*) => { {
         use std::io::Write;
         let mut outp = std::io::BufWriter::new(std::io::stderr().lock());
         let _ = write!(&mut outp, "W: ");
         let _ = write!(&mut outp, $formatstr $(,$arg)*);
         let _ = writeln!(&mut outp, " at {:?} line {}", file!(), line!());
         let _ = outp.flush();
-    }
+    } }
 }
 
 #[macro_export]
