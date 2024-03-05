@@ -150,7 +150,7 @@ impl ConnectionAndStatements {
 // ------------------------------------------------------------------
 defn_with_statement!(with_select_user_by_id,
                      st_select_user_by_id,
-                     "select id, username, email, name, surname, pass \
+                     "select id, username, email, name, surname, hashed_pass \
                       from User where id = ?");
 impl<'t> Transaction<'t> {
     pub fn get_user_by_id(
