@@ -854,8 +854,9 @@ pub fn login_handler<L: Language + 'static>(
                     }
                 }
             } else {
-                let return_path = context.get_param("return_path");
-                immediate(show_form(None, None, return_path))
+                immediate(show_form(None,
+                                    context.get_param("username"),
+                                    context.get_param("return_path")))
             }
         }))
 }
