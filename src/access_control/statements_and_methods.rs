@@ -1,7 +1,7 @@
 use std::{path::PathBuf, pin::Pin, sync::{atomic::AtomicBool, Mutex, Arc}};
 
 use anyhow::{bail, Result};
-use blake3::Hasher;
+use blake3::{Hasher, Hash};
 use sqlite::{Statement, Connection, State, Bindable, BindableWithIndex};
 
 use crate::{warn_thread, defn_with_statement, get_statement, try_sqlite, notime};
@@ -392,6 +392,15 @@ impl<'t> Transaction<'t> {
     }
 }
 
+pub fn sessionid_hash(hasher: Hasher, session_id: &str) -> Hash {
+    notime!{
+        "hashing";
+        let mut hasher = hasher;
+        hasher.update(session_id.as_bytes());
+        hasher.finalize()
+    }
+}
+
 defn_with_statement!(with_select_sessiondata_by_sessionid,
                      st_select_sessiondata_by_sessionid,
                      "select id, sessionid_hash, last_request_time, user_id, ip \
@@ -407,17 +416,13 @@ impl<'t> Transaction<'t> {
         })
     }
 
+    /// Note: to avoid having to re-hash, better use `sessionid_hash`
+    /// and `get_sessiondata_by_sessionid_hash` separately.
     pub fn get_sessiondata_by_sessionid(
         &mut self, sessionid: &str, hasher: Hasher
     ) -> Result<Option<SessionData>, UniqueError>
     {
-        let h = notime!{
-            "hashing";
-            let mut hasher = hasher;
-            hasher.update(sessionid.as_bytes());
-            hasher.finalize()
-        };
-        self.get_sessiondata_by_sessionid_hash(h.as_bytes())
+        self.get_sessiondata_by_sessionid_hash(sessionid_hash(hasher, sessionid).as_bytes())
     }
 }
 
