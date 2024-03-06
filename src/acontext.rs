@@ -11,7 +11,7 @@ use rouille::{Request, HeadersIter,
 use crate::{ppath::PPath,
             http_request_method::HttpRequestMethod,
             rouille_util::{get_cookie, possibly_add_cookie_header, NewCookieValue},
-            language::Language, warn};
+            language::Language, warn, auri::QueryString, url_encoding::UrlDecodingError};
 
 
 pub trait CookieKey {
@@ -197,6 +197,9 @@ impl<'r, 's, 'h, L: Language + Default> AContext<'r, 's, 'h, L> {
     pub fn param(&self, name: &str) -> Result<String>  {
         self.get_param(name).ok_or_else(
             || anyhow!("missing param {name:?}"))
+    }
+    pub fn params(&self) -> Result<QueryString, UrlDecodingError>  {
+        QueryString::from_str(self.query_string())
     }
     pub fn host(&self) -> Option<&str> { self.request.header("host") }
     pub fn host_or_listen_addr(&self) -> &str {
