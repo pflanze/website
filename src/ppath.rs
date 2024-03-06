@@ -310,6 +310,11 @@ mod tests {
                      segments: vec!["foo"] },
             String::from("/foo")));
         assert_eq!(
+            t(3, 4),
+            (PPath { is_absolute: true, ends_with_slash: false,
+                     segments: vec!["world", "foo"] },
+            String::from("/world/foo")));
+        assert_eq!(
             t(2, 5),
             (PPath { is_absolute: true, ends_with_slash: true,
                      segments: vec!["bar", "baz"] },

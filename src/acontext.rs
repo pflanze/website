@@ -217,7 +217,7 @@ impl<'r, 's, 'h, L: Language + Default> AContext<'r, 's, 'h, L> {
     pub fn headers(&self) -> HeadersIter { self.request.headers() }
 
     pub fn redirect_302_with_query(&self, path: &PPath<KString>) -> Response {
-        // XX more testing?  test foo + bar = bar not foo/bar !
+        // (foo + bar = bar not foo/bar, yes is tested)
         let mut target = self.path().add(path).to_string();
         let querystr = self.request().raw_query_string();
         if ! querystr.is_empty() {
