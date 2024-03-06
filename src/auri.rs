@@ -7,7 +7,7 @@
 
 use kstring::KString;
 
-use crate::{ppath::PPath, url_encoding::url_encode};
+use crate::{ppath::PPath, url_encoding::{url_encode, url_decode, UrlDecodingError}};
 
 
 // ------------------------------------------------------------------
@@ -88,7 +88,52 @@ impl QueryString {
     ) -> Self {
         Self(keyvals.to_vec_key_val())
     }
+
+    pub fn from_str(s: &str) -> Result<Self, UrlDecodingError> {
+        let mut v = Vec::new();
+        for partraw in s.split('&') {
+            if ! partraw.is_empty() {
+                if let Some((key, val)) = partraw.split_once('=') {
+                    v.push((url_decode(key)?.into(),
+                            url_decode(val)?.into()));
+                } else {
+                    // XX accept as value-less thing?
+                    v.push((url_decode(partraw)?.into(),
+                            "".into()));
+                }
+            }
+        }
+        Ok(QueryString(v))
+    }
+
+    pub fn push(&mut self, keyval: (KString, KString)) {
+        self.0.push(keyval);
+    }
 }
+
+#[cfg(test)]
+mod tests1 {
+    use super::*;
+
+    #[test]
+    fn t_querystring_from_str() {
+        fn t(s: &str, q: &[(&str, &str)]) {
+            let q1 = QueryString::from_str(s).expect("not to fail");
+            let q11: Vec<(&str, &str)> =
+                q1.0.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+            assert_eq!(&q11, q);
+        }
+        t("", &[]);
+        t("foo", &[("foo", "")]); // XX not sure
+        t("foo=1", &[("foo", "1")]);
+        t("=1&&2=", &[("", "1"), ("2", "")]);
+        t("foo=1&bar=2", &[("foo", "1"), ("bar", "2")]);
+        t("foo=1%26&ba%72=%202", &[("foo", "1&"), ("bar", " 2")]);
+        // ^ XX is it ok to decode keys, but doing it after & and = splitting?
+        // XXX test unicode
+    }
+}
+
 
 // ------------------------------------------------------------------
 
