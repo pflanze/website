@@ -58,7 +58,8 @@ pub fn write_combined<L: Language>(
             let session_id = context.session_id();
             if let Some(user) = get_user_from_session_id(
                 session_id, context.sessionid_hasher())? {
-                Cow::from(format!("{:?}", user.username))
+                // XX I never enforce that those are \w+ only. todo!
+                Cow::from(user.username)
             } else {
                 Cow::from("-")
             }

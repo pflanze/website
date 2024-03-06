@@ -34,7 +34,7 @@ use crate::{acontext::AContext,
             aresponse::{AResponse, ToAResponse},
             time_util::{self, now_unixtime},
             ipaddr_util::IpAddrOctets,
-            auri::{AUriLocal, QueryString},
+            auri::AUriLocal,
             notime, path::{path_append, extension_eq, base, suffix}, language::Language};
 use crate::{try_result, warn, nodt, time_guard};
 
@@ -913,10 +913,12 @@ impl<L: Language + 'static> Restricted<L> for Arc<dyn Handler<L>> {
             })?;
             match state {
                 LoginState::NeedLogin => {
+                    let mut params = context.params()?;
+                    params.push(("return_path".into(),
+                                 KString::from_ref(context.path_str())));
                     let target = AUriLocal::from_str(
                         "/login",
-                        Some(QueryString::new(
-                            [("return_path", context.path_str())])));
+                        Some(params));
                     Ok(Some(Response::redirect_302(String::from(target)).into()))
                 }
                 LoginState::NotAllowed => {
