@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec cargo run --bin access_control -- "$@"
