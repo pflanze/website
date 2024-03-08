@@ -190,63 +190,69 @@ fn main() -> Result<()> {
             })
         }).transpose()?;
     
-    let footnotestyle: Arc<dyn StylingInterface> =
-        match getenv_or("STYLE", Some("blog"))?.as_str() {
-            "blog" => Arc::new(BlogStyle {}),
-            "wikipedia" => Arc::new(WikipediaStyle {}),
-            _ => bail!("no match for STYLE env var value"),
-        };
+    let footnotestyle = {
+        let s : Arc<dyn StylingInterface> =
+            match getenv_or("STYLE", Some("blog"))?.as_str() {
+                "blog" => Arc::new(BlogStyle {}),
+                "wikipedia" => Arc::new(WikipediaStyle {}),
+                _ => bail!("no match for STYLE env var value"),
+            };
+        move || s.clone()
+    };
 
     let site_owner = "Christian Jaeger";
-    let style = Arc::new(WebsiteLayout {
-        site_name: site_owner,
-        copyright_owner: site_owner,
-        nav: &NAV,
-        header_contents: Box::new({
-            let in_datadir = in_datadir.clone();
-            move |html: &HtmlAllocator| -> Result<Flat<Node>> {
-                Ok(Flat::One(
-                    html.a([att("href", "/")], // i18n: just redirect again, OK?
-                           [static_img(html,
-                                       &in_datadir("static/headerbg2.jpg"),
-                                       "/static/headerbg2.jpg",
-                                       "",
-                                       Some("headerpic"))?])?))
-            }}),
-        sibling_from_path: Box::new(sibling_from_path),
-    });
+    let style = {
+        let s = Arc::new(WebsiteLayout {
+            site_name: site_owner,
+            copyright_owner: site_owner,
+            nav: &NAV,
+            header_contents: Box::new({
+                let in_datadir = in_datadir.clone();
+                move |html: &HtmlAllocator| -> Result<Flat<Node>> {
+                    Ok(Flat::One(
+                        html.a([att("href", "/")], // i18n: just redirect again, OK?
+                               [static_img(html,
+                                           &in_datadir("static/headerbg2.jpg"),
+                                           "/static/headerbg2.jpg",
+                                           "",
+                                           Some("headerpic"))?])?))
+                }}),
+            sibling_from_path: Box::new(sibling_from_path),
+        });
+        move || s.clone()
+    };
     let preview_groupid = get_group_id("preview")?;
     let fellowship_groupid = get_group_id("fellowship")?;
     let mut router : MultiRouter<Arc<dyn Handler<Lang>>> = MultiRouter::new();
     router
-        .add("/login", login_handler(style.clone()))
+        .add("/login", login_handler(style()))
         .add("/bench", Arc::new(ExactFnHandler::new(website_benchmark::benchmark)))
         .add("/", language_handler())
     // --------------------------------------------
     // XX horrible hack, make a dir lister; also redirector for dir; and for non-language urls (ok that one will be above)
-        .add("/en.html", markdownpage_handler(&in_datadir("en.en-de.md"), style.clone()))
-        .add("/climate.html", markdownpage_handler(&in_datadir("climate.en-umwelt.md"), style.clone()))
-        .add("/projects.html", markdownpage_handler(&in_datadir("projects.en-projekte.md"), style.clone()))
-        .add("/about.html", markdownpage_handler(&in_datadir("about.en-person.md"), style.clone()))
-        .add("/contact.html", markdownpage_handler(&in_datadir("contact.en-kontakt.md"), style.clone()))
+        .add("/en.html", markdownpage_handler(&in_datadir("en.en-de.md"), style()))
+        .add("/climate.html", markdownpage_handler(&in_datadir("climate.en-umwelt.md"), style()))
+        .add("/projects.html", markdownpage_handler(&in_datadir("projects.en-projekte.md"), style()))
+        .add("/about.html", markdownpage_handler(&in_datadir("about.en-person.md"), style()))
+        .add("/contact.html", markdownpage_handler(&in_datadir("contact.en-kontakt.md"), style()))
 
-        .add("/de.html", markdownpage_handler(&in_datadir("de.de-en.md"), style.clone()))
-        .add("/umwelt.html", markdownpage_handler(&in_datadir("umwelt.de-climate.md"), style.clone()))
-        .add("/projekte.html", markdownpage_handler(&in_datadir("projekte.de-projects.md"), style.clone()))
-        .add("/person.html", markdownpage_handler(&in_datadir("person.de-about.md"), style.clone()))
-        .add("/kontakt.html", markdownpage_handler(&in_datadir("kontakt.de-contact.md"), style.clone()))
+        .add("/de.html", markdownpage_handler(&in_datadir("de.de-en.md"), style()))
+        .add("/umwelt.html", markdownpage_handler(&in_datadir("umwelt.de-climate.md"), style()))
+        .add("/projekte.html", markdownpage_handler(&in_datadir("projekte.de-projects.md"), style()))
+        .add("/person.html", markdownpage_handler(&in_datadir("person.de-about.md"), style()))
+        .add("/kontakt.html", markdownpage_handler(&in_datadir("kontakt.de-contact.md"), style()))
     // --------------------------------------------
         .add("/static", Arc::new(FileHandler::new(in_datadir("static"))))
         .add("/blog", blog_handler(
-            Blog::open(in_datadir("blog"), &ALLOCPOOL, footnotestyle.clone())?,
-            style.clone()))
+            Blog::open(in_datadir("blog"), &ALLOCPOOL, footnotestyle())?,
+            style()))
         .add("/preview", blog_handler(
-            Blog::open(in_datadir("preview"), &ALLOCPOOL, footnotestyle)?,
-            style.clone())
-             .restricted_to_group(preview_groupid, style.clone()))
-        .add("/fellowship", mixed_dir_handler("www-data/fellowship", style.clone())
-            .restricted_to_group(fellowship_groupid, style.clone()))
-        .add("/p", markdowndir_handler(&in_datadir("p"), style.clone()))
+            Blog::open(in_datadir("preview"), &ALLOCPOOL, footnotestyle())?,
+            style())
+             .restricted_to_group(preview_groupid, style()))
+        .add("/fellowship", mixed_dir_handler("www-data/fellowship", style())
+            .restricted_to_group(fellowship_groupid, style()))
+        .add("/p", markdowndir_handler(&in_datadir("p"), style()))
         ;
     if let Some(wwwdir) = wwwdir {
         router.add("/", Arc::new(FileHandler::new(wwwdir)));
