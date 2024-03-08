@@ -25,13 +25,16 @@ mod tests {
 
     use super::*;
 
+    #[allow(unused)]
     struct T1 {
         a: U24,
     }
+    #[allow(unused)]
     struct T2 {
         a: U24,
         b: u8
     }
+    #[allow(unused)]
     struct T3 {
         a: bool,
         b: U24,
