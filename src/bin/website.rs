@@ -358,13 +358,14 @@ fn main() -> Result<()> {
     let workerthreadpool = {
         let cfg = scoped_thread_pool::ThreadConfig::new()
             .prefix("scoped_website_worker");
-        Arc::new(scoped_thread_pool::Pool::with_thread_config(
-            workerthreadpool_size, cfg))
+        let p = Arc::new(scoped_thread_pool::Pool::with_thread_config(
+            workerthreadpool_size, cfg));
+        move || p.clone()
     };
     let http_thread = thread::Builder::new().name("website_http".into()).spawn({
         let addr = std::env::var("LISTEN_HTTP").unwrap_or("127.0.0.1:3000".into());
         let hostsrouter = new_hostsrouter(false)?;
-        let workerthreadpool = workerthreadpool.clone();
+        let workerthreadpool = workerthreadpool();
         let sessionid_hasher = sessionid_hasher.clone();
         move || {
             run!(Server::new(
@@ -383,7 +384,7 @@ fn main() -> Result<()> {
     let https_thread = thread::Builder::new().name("website_https".into()).spawn({
         let addr = std::env::var("LISTEN_HTTPS").unwrap_or("127.0.0.1:3001".into());
         let hostsrouter = new_hostsrouter(true)?;
-        let workerthreadpool = workerthreadpool.clone();
+        let workerthreadpool = workerthreadpool();
         let sessionid_hasher = sessionid_hasher.clone();
         move || {
             if let Some(tlskeys) = tlskeys {
