@@ -83,7 +83,7 @@ fn main() -> Result<()> {
             let hashed_pass = create_password_hash(&password)?;
             let user = User {
                 id: None,
-                username: username.to_string(),
+                username: username.try_into()?,
                 email: email.map(|v| v.to_string()),
                 name,
                 surname,

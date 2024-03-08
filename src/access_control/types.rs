@@ -13,13 +13,13 @@ pub trait FromStatement {
     where Self: Sized;
 }
 
-macro_rules! newtype_impl_sqlite {
-    { $t:tt } => {
+macro_rules! newtype_sqlite {
+    { $t:tt, $type:ty } => {
         impl ReadableWithIndex for $t {
             fn read<T: sqlite::ColumnIndex>(
                 st: &Statement, i: T
             ) -> sqlite::Result<Self> {
-                Ok($t(i64::read(st, i)?))
+                Ok($t(<$type>::read(st, i)?))
             }
         }
 
@@ -41,26 +41,73 @@ macro_rules! newtype_impl_sqlite {
 
         impl Debug for $t {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.write_fmt(format_args!("{}({})", stringify!($t), self.0))
+                f.write_fmt(format_args!("{}({:?})", stringify!($t), self.0))
             }
         }
 
         impl Clone for $t {
             fn clone(&self) -> Self {
-                Self(self.0)
+                Self(self.0.clone())
             }
         }
+    }
+}
+
+macro_rules! newtype_sqlite_copy {
+    { $t:tt, $type:ty } => {
+        newtype_sqlite!{ $t, $type }
         impl Copy for $t {}
     }
 }
 
+// Can't use KString or would need to impl From<KString> for `Cow<'_,
+// _>`, and also associated `read` function for KString.
+pub struct UserOrGroupName(String);
+newtype_sqlite!(UserOrGroupName, String);
+
+// (Thus also can't use KString conversion traits.)
+
+#[derive(Debug, thiserror::Error)]
+pub enum UserOrGroupNameError {
+    #[error("invalid character {1:?} in user or group name at index {0}")]
+    InvalidCharacter(usize, char)
+}
+
+impl UserOrGroupName {
+    pub fn new(s: String) -> Result<Self, UserOrGroupNameError> {
+        for (i, c) in s.chars().enumerate() {
+            if ! c.is_ascii_alphanumeric() {
+                return Err(UserOrGroupNameError::InvalidCharacter(i, c))
+            }
+        }
+        Ok(Self(s))
+    }
+    pub fn to_string(self) -> String {
+        self.0
+    }
+}
+impl TryFrom<String> for UserOrGroupName {
+    type Error = UserOrGroupNameError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value)
+    }
+}
+impl TryFrom<&str> for UserOrGroupName {
+    type Error = UserOrGroupNameError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::new(value.into())
+    }
+}
+
 pub struct UserId(pub i64);
-newtype_impl_sqlite!(UserId);
+newtype_sqlite_copy!(UserId, i64);
 
 #[derive(Debug)]
 pub struct User {
     pub id: Option<UserId>,
-    pub username: String,
+    pub username: UserOrGroupName,
     pub email: Option<String>,
     pub name: String,
     pub surname: String,
@@ -86,12 +133,13 @@ impl Bindable for &User {
         // HACK: assume we want to bind it from index 0, and id should
         // come last. Make our own trait?
         let offset = |n: usize| -> usize { n + 1 };
-        self.username.bind(st, offset(0))?;
-        self.email.as_ref().map(|v| v.as_str()).bind(st, offset(1))?;
-        self.name.bind(st, offset(2))?;
-        self.surname.bind(st, offset(3))?;
-        self.hashed_pass.bind(st, offset(4))?;
-        if let Some(id) = self.id {
+        let User { id, username, email, name, surname, hashed_pass } = self;
+        username.clone().bind(st, offset(0))?;
+        email.as_ref().map(|v| v.as_str()).bind(st, offset(1))?;
+        name.bind(st, offset(2))?;
+        surname.bind(st, offset(3))?;
+        hashed_pass.bind(st, offset(4))?;
+        if let Some(id) = id {
             id.bind(st, offset(5))?;
         }
         Ok(())
@@ -113,12 +161,12 @@ impl FromStatement for Count {
 
 
 pub struct GroupId(pub i64);
-newtype_impl_sqlite!(GroupId);
+newtype_sqlite_copy!(GroupId, i64);
 
 #[derive(Debug)]
 pub struct Group {
     pub id: Option<GroupId>,
-    pub groupname: String,
+    pub groupname: UserOrGroupName,
 }
 
 impl FromStatement for Group {
