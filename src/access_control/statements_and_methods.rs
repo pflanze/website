@@ -289,7 +289,7 @@ defn_with_statement!(with_update_user,
                       where id = ?");
 impl<'t> Transaction<'t> {
     pub fn update_user(
-        &mut self, user: &User
+        &mut self, user: User
     ) -> Result<(), SQLitePosError> {
         let _id = user.id.expect("has id because it was read from DB, or caller provided it");
         self.connection_and_statements.with_update_user(|sth| {

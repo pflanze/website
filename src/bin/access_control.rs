@@ -189,7 +189,7 @@ fn main() -> Result<()> {
                 let mut user = trans.get_user_by_username(username)?.ok_or_else(
                     || anyhow!("There's no user with username {username:?}"))?;
                 user.hashed_pass = hashed_pass.clone();
-                trans.update_user(&user)?;
+                trans.update_user(user)?;
                 Ok(())
             }).map_err(anyhow::Error::from)
         }
