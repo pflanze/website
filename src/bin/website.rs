@@ -28,7 +28,7 @@ use website::markdown::StylingInterface;
 use rouille::Server;
 use website::nav::{Nav, NavEntry, SubEntries};
 use website::router::MultiRouter;
-use website::util::{log_basedir, getenv_or, getenv, xgetenv};
+use website::util::{log_basedir, getenv_or, getenv, xgetenv, getenv_bool};
 use website::webparts::{markdownpage_handler, blog_handler, server_handler,
                         login_handler, Restricted, markdowndir_handler, language_handler, mixed_dir_handler};
 use website::website_layout::WebsiteLayout;
@@ -180,7 +180,7 @@ fn main() -> Result<()> {
     let wellknowndir: String = getenv("WELLKNOWNDIR")?.ok_or_else(
         || anyhow!("Missing WELLKNOWNDIR env var, e.g. /var/www/html/.well-known/"))?;
     let tlskeysfilebase = getenv("TLSKEYSFILEBASE")?;
-    let is_dev = getenv("IS_DEV")?.is_some();
+    let is_dev = getenv_bool("IS_DEV")?;
 
     let tlskeys = tlskeysfilebase.map(
         |base| -> Result<_> {

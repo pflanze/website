@@ -351,6 +351,25 @@ pub fn xgetenv(name: &str) -> Result<String> {
         || anyhow!("missing env var {name:?}"))
 }
 
+/// Retrieve a boolean from an env var. A missing env var or the
+/// strings "0", "false" or "no" represent false, a present env var
+/// with the strings "", "1", "true", or "yes" represent true.
+pub fn getenv_bool(name: &str) -> Result<bool> {
+    if let Some(s) = getenv(name)? {
+        match &*s {
+            "" => Ok(true), // really?
+            "1" => Ok(true),
+            "true" => Ok(true),
+            "yes" => Ok(true),
+            "0" => Ok(false),
+            "false" => Ok(false),
+            "no" => Ok(false),
+            _ => bail!("boolean env var {name:?} has invalid contents {s:?}")
+        }
+    } else {
+        Ok(false)
+    }
+}
 
 /// Takes a place (variable or field) holding an `Option<T>` and an
 /// expression that returns `T`; returns a `&T` to the value held by
