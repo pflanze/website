@@ -19,7 +19,8 @@ macro_rules! newtype_sqlite {
             fn read<T: sqlite::ColumnIndex>(
                 st: &Statement, i: T
             ) -> sqlite::Result<Self> {
-                Ok($t(<$type>::read(st, i)?))
+                Ok(<$t>::new(<$type>::read(st, i)?)
+                   .expect("no invalid data in database"))
             }
         }
 
@@ -57,6 +58,13 @@ macro_rules! newtype_sqlite_copy {
     { $t:tt, $type:ty } => {
         newtype_sqlite!{ $t, $type }
         impl Copy for $t {}
+        impl $t {
+            // Return `Result` for consistency with constructors that
+            // *can* return errors; only used with `expect`.
+            fn new(v: $type) -> Result<Self, ()> {
+                Ok(Self(v))
+            }
+        }
     }
 }
 
