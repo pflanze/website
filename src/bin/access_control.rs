@@ -103,7 +103,7 @@ fn main() -> Result<()> {
                     args.group.as_ref().ok_or_else(
                         || anyhow!("need --group option"))?)?;
             access_control_transaction(true, |trans| {
-                trans.insert_group(groupname)
+                trans.insert_group(groupname.try_into()?)
             }).map_err(anyhow::Error::from)
         }
         "add" => {

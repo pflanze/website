@@ -6,7 +6,7 @@ use sqlite::{Statement, Connection, State, Bindable, BindableWithIndex};
 
 use crate::{warn_thread, defn_with_statement, get_statement, try_sqlite, notime};
 use super::{transaction::Transaction,
-            types::{User, Group, Count, SessionData, UserId, GroupId},
+            types::{User, Group, Count, SessionData, UserId, GroupId, UserOrGroupName},
             util::{get_unique_by, UniqueError, RequiredUniqueError, required_unique},
             sqliteposerror::SQLitePosError};
 
@@ -184,7 +184,7 @@ defn_with_statement!(with_select_group_by_groupname,
                       from \"Group\" where groupname = ?");
 impl<'t> Transaction<'t> {
     pub fn get_group_by_groupname(
-        &mut self, groupname: &str
+        &mut self, groupname: &str // use UserOrGroupName ?
     ) -> Result<Option<Group>, UniqueError>
     {
         self.connection_and_statements.with_select_group_by_groupname(|sth| {
@@ -192,7 +192,7 @@ impl<'t> Transaction<'t> {
         })
     }
     pub fn xget_group_by_groupname(
-        &mut self, groupname: &str
+        &mut self, groupname: &str // use UserOrGroupName ?
     ) -> Result<Group, RequiredUniqueError>
     {
         required_unique("Group", || format!("{groupname:?}"),
@@ -209,6 +209,7 @@ defn_with_statement!(with_select_userid_from_username_groupname,
                       where User.username = ? and Group.groupname = ?");
 impl<'t> Transaction<'t> {
     pub fn username_has_groupname(
+        // use UserOrGroupName for both arguments?
         &mut self, username: &str, groupname: &str
     ) -> Result<bool>
     {
@@ -240,7 +241,7 @@ defn_with_statement!(with_select_groupid_from_userid_groupname,
                       where UserInGroup.user_id = ? and \"Group\".groupname = ?");
 impl<'t> Transaction<'t> {
     pub fn userid_has_groupname(
-        &mut self, user_id: UserId, groupname: &str
+        &mut self, user_id: UserId, groupname: &str // use UserOrGroupName ?
     ) -> Result<bool, SQLitePosError>
     {
         self.connection_and_statements.with_select_groupid_from_userid_groupname(|sth| {
@@ -308,7 +309,7 @@ defn_with_statement!(with_insert_into_group,
                      "insert into \"Group\" (groupname) values (?)");
 impl<'t> Transaction<'t> {
     pub fn insert_group(
-        &mut self, groupname: &str
+        &mut self, groupname: UserOrGroupName
     ) -> Result<()> {
         self.connection_and_statements.with_insert_into_group(|sth| {
             sth.reset()?;
