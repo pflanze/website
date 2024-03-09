@@ -611,14 +611,14 @@ impl HtmlAllocator {
                             allowed.keys().map(|k| k.clone()).collect::<HashSet<KString>>();
                         allowednamesset.extend(global_meta.global_attribute_names.iter()
                                                .map(|k| k.clone()));
-                        let mut allowednames: Vec<String> =
+                        let mut allowednames: Vec<&str> =
                             allowednamesset.iter().map(
-                                |v| v.to_string()).collect();
+                                |v| v.as_str()).collect();
                         allowednames.sort();
                         bail!("invalid attribute #{i} {:?} for element {:?} \
                                (valid: {:?})\n{:?}",
-                              att.0.to_string(),
-                              meta.tag_name.to_string(),
+                              att.0.as_str(),
+                              meta.tag_name.as_str(),
                               allowednames,
                               Backtrace::new())
                     }
@@ -631,13 +631,13 @@ impl HtmlAllocator {
                         |child_meta: &ElementMeta| -> Result<()>
                     {
                         if ! allowed.contains(&child_meta.tag_name) {
-                            let mut allowednames: Vec<String> = allowed.iter().map(
-                                |k| k.to_string()).collect();
+                            let mut allowednames: Vec<&str> = allowed.iter().map(
+                                |k| k.as_str()).collect();
                             allowednames.sort();
                             bail!("content value #{i}: element {:?} not allowed as \
                                    a child of element {:?}, only: {:?}{}\n{:?}",
-                                  child_meta.tag_name.to_string(),
-                                  meta.tag_name.to_string(),
+                                  child_meta.tag_name.as_str(),
+                                  meta.tag_name.as_str(),
                                   allowednames,
                                   if meta.allows_child_text {
                                       " as well as text"
@@ -656,12 +656,12 @@ impl HtmlAllocator {
                             if (! meta.allows_child_text) &&
                                 (! all_whitespace(s.as_str()))
                             {
-                                let mut allowednames: Vec<String> = allowed.iter().map(
-                                    |k| k.to_string()).collect();
+                                let mut allowednames: Vec<&str> = allowed.iter().map(
+                                    |k| k.as_str()).collect();
                                 allowednames.sort();
                                 bail!("content value #{i}: text is not allowed as \
                                        a child of element {:?}, only: {:?}\n{:?}",
-                                      meta.tag_name.to_string(),
+                                      meta.tag_name.as_str(),
                                       allowednames,
                                       Backtrace::new())
                             }
