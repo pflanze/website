@@ -51,6 +51,8 @@ backtrace = "0.3"
 getrandom = "0.2"
 cmark-syntax = { version = "0.4", default-features = false }
 
+[patch.crates-io]
+addr2line = { path = "../src/addr2line" }
 
 [build-dependencies]
 pkg-config = "0.3"

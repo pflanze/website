@@ -21,16 +21,18 @@ binaries on Windows. Or you could trust the systems where those
 binaries were built, of course.
 
 I have modified the `blake3` crate to use an older version of
-`constant_time_eq` that compiles with rustc from Debian stable,
-and `argon2` to not require a newer rust-version than Debian's
-compiler (which works just fine, but upstream doesn't want to apply
-the change). They are expected to be checked out at `../src/`. So, run:
+`constant_time_eq` that compiles with rustc from Debian stable, and
+`argon2` and `addr2line` to not require a newer rust-version than
+Debian's compiler (which works just fine, but at least `argon2`
+upstream doesn't want to apply the change). They are expected to be
+checked out at `../src/`. So, run:
 
     cd ..
     mkdir src
     cd src
     git clone https://github.com/pflanze/BLAKE3
     git clone https://github.com/pflanze/password-hashes
+    git clone https://github.com/pflanze/addr2line
 
 These repositories, just like this one, carry Git tags signed by
 me.
