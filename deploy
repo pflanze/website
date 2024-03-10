@@ -12,6 +12,8 @@ make test_website
 # but don't need static linking anymore now.
 time cargo build --release --bin website --bin access_control
 
-gls data |» netsend deploy-receive resources/merged/elements/ accounts-schema.sql target/release/{website,access_control}
+# avoid pipe (gls data|» ...) because netoffer reads from stdin.
+mapfile -d "$(echo -ne '\0')" -t datafiles < <(git ls-files -z data)
+netsend deploy-receive resources/merged/elements/ accounts-schema.sql target/release/{website,access_control} "${datafiles[@]}"
 
 gtag deployed
