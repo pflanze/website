@@ -688,10 +688,10 @@ impl HtmlAllocator {
             }
             let bt = Backtrace::new();
             if seen_title {
-                warn!("element {:?} already has 'title' attribute, not adding tracing at:\n{bt:#?}",
+                warn!("element {:?} already has 'title' attribute, not adding tracing at:\n{bt:?}",
                       &*meta.tag_name);
             } else {
-                vec.push(self.attribute("title", format!("Generated at:\n{bt:#?}"))?)?;
+                vec.push(self.attribute("title", format!("Generated at:\n{bt:?}"))?)?;
             }
             attr = vec.to_aslice(self)?;
         }
