@@ -1,6 +1,6 @@
 # Christian Jaeger
 
-<img class="floating_right" src="/static/Portrait.webp" title="Portrait">
+<img class="floating_right" src="/static/Portrait.webp" alt="Portrait">
 
 ## Freischaffender Softwareentwickler
 
