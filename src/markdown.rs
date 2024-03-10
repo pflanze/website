@@ -462,13 +462,14 @@ impl ProcessedMarkdown {
             };
 
         let node2 = {
-            let node = html.get_node(self.html).expect(
-                "ProcessedMarkdown to be used with the same Allocator it was created with");
-            // Bummer, Element is quite large (5 words?), but we have
-            // to free up the borrow from get_node because
-            // try_filter_map_body needs a writable one.
-            let elt = (*node.try_element()?).clone();
-            drop(node);
+            let elt = {
+                let node = html.get_node(self.html).expect(
+                    "ProcessedMarkdown to be used with the same Allocator it was created with");
+                // Bummer, Element is quite large (5 words?), but we have
+                // to free up the borrow from get_node because
+                // try_filter_map_body needs a writable one.
+                (*node.try_element()?).clone()
+            };
             elt.try_filter_map_body::<Node>(fixup, html)?
         };
         Ok(html.allocate_element(node2)?)
