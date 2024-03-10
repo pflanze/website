@@ -11,7 +11,7 @@ use website::alist::AList;
 use website::apachelog::Logs;
 use website::acontext::AContext;
 use website::blog::Blog;
-use website::ahtml::{AllocatorPool, Flat, HtmlAllocator, Node, att};
+use website::ahtml::{AllocatorPool, Flat, HtmlAllocator, Node, att, AHTML_TRACE};
 use anyhow::{Result, bail, anyhow};
 use website::hostrouter::{HostRouter, HostsRouter};
 use website::http_response_status_codes::HttpResponseStatusCode;
@@ -181,6 +181,10 @@ fn main() -> Result<()> {
         || anyhow!("Missing WELLKNOWNDIR env var, e.g. /var/www/html/.well-known/"))?;
     let tlskeysfilebase = getenv("TLSKEYSFILEBASE")?;
     let is_dev = getenv_bool("IS_DEV")?;
+    let ahtml_trace = getenv_bool("AHTML_TRACE")?;
+    dbg!(ahtml_trace);
+
+    AHTML_TRACE.store(ahtml_trace, std::sync::atomic::Ordering::Relaxed);
 
     let tlskeys = tlskeysfilebase.map(
         |base| -> Result<_> {

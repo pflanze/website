@@ -2,7 +2,10 @@
 
 use std::{marker::PhantomData,
           cell::{RefCell, Ref, RefMut},
-          cmp::max, io::Write, sync::{Mutex, Arc}, collections::HashSet};
+          cmp::max,
+          io::Write,
+          sync::{Mutex, Arc, atomic::AtomicBool},
+          collections::HashSet};
 use backtrace::Backtrace;
 use kstring::KString;
 use anyhow::{Result, bail};
@@ -309,6 +312,8 @@ fn next_allocator_id() -> U24 {
         };
     U24::new(id)
 }
+
+pub static AHTML_TRACE: AtomicBool = AtomicBool::new(false);
 
 impl HtmlAllocator {
     pub fn new(max_id: u32, metadb: Option<&'static MetaDb>) -> HtmlAllocator {
@@ -668,6 +673,27 @@ impl HtmlAllocator {
                     }
                 }
             }
+        }
+
+        let mut attr = attr;
+        if AHTML_TRACE.load(std::sync::atomic::Ordering::Relaxed) {
+            let mut seen_title = false;
+            let mut vec = self.new_vec_with_capacity(attr.len + 1)?;
+            for id in attr.iter_aid(&self) {
+                let r = self.get_att(id).expect("exists because it's in attr");
+                if r.0 == "title" {
+                    seen_title = true;
+                }
+                vec.push(id)?;
+            }
+            let bt = Backtrace::new();
+            if seen_title {
+                warn!("element {:?} already has 'title' attribute, not adding tracing at:\n{bt:#?}",
+                      &*meta.tag_name);
+            } else {
+                vec.push(self.attribute("title", format!("Generated at:\n{bt:#?}"))?)?;
+            }
+            attr = vec.to_aslice(self)?;
         }
         
         let mut nodes= self.nodes.borrow_mut();
