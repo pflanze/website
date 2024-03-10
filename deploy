@@ -12,7 +12,6 @@ make test_website
 # but don't need static linking anymore now.
 time cargo build --release --bin website --bin access_control
 
-netsend deploy-receive resources/merged/elements/ accounts-schema.sql target/release/{website,access_control} \
-        data/*
+gls data |» netsend deploy-receive resources/merged/elements/ accounts-schema.sql target/release/{website,access_control}
 
 gtag deployed
