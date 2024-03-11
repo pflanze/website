@@ -32,6 +32,7 @@ pub mod date_format;
 pub mod date_format_website;
 pub mod url_encoding;
 pub mod stringsplit;
+pub mod scripting;
 pub mod style {
     pub mod footnotes;
 }
