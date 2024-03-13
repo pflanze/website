@@ -30,7 +30,8 @@ use website::nav::{Nav, NavEntry, SubEntries};
 use website::router::MultiRouter;
 use website::util::{log_basedir, getenv_or, getenv, xgetenv, getenv_bool};
 use website::webparts::{markdownpage_handler, blog_handler, server_handler,
-                        login_handler, Restricted, markdowndir_handler, language_handler, mixed_dir_handler};
+                        login_handler, Restricted, unlisted_markdowndir_handler,
+                        language_handler, mixed_dir_handler};
 use website::website_layout::WebsiteLayout;
 use website::handler::Handler;
 use website::{website_benchmark, warn};
@@ -257,7 +258,7 @@ fn main() -> Result<()> {
                  .restricted_to_group(preview_groupid, style()))
             .add("/fellowship", mixed_dir_handler("www-data/fellowship", style())
                 .restricted_to_group(fellowship_groupid, style()))
-            .add("/p", markdowndir_handler(&in_datadir("p"), style()))
+            .add("/p", unlisted_markdowndir_handler(&in_datadir("p"), style()))
             ;
         if let Some(wwwdir) = wwwdir {
             router.add("/", Arc::new(FileHandler::new(wwwdir)));

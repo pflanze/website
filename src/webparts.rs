@@ -441,7 +441,7 @@ fn generate_markdown_page<L: Language + 'static>(
 /// thus suitable to host unlisted files only meant to be reachable via
 /// a privately shared URL. You still need to choose sufficiently
 /// random sub-paths for them to evade brute forcing!
-pub fn markdowndir_handler<L: Language + 'static>(
+pub fn unlisted_markdowndir_handler<L: Language + 'static>(
     dir_path: &str,
     style: Arc<dyn LayoutInterface<L>>
 ) -> Arc<dyn Handler<L>>
