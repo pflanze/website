@@ -439,7 +439,7 @@ fn generate_markdown_page<L: Language + 'static>(
 /// 0.2 seconds to hide potential side channels that would enable path
 /// discovery as well as to make brute forcing harder. This handler is
 /// thus suitable to host unlisted files only meant to be reachable via
-/// an explicitly shared URL. You still need to choose sufficiently
+/// a privately shared URL. You still need to choose sufficiently
 /// random sub-paths for them to evade brute forcing!
 pub fn markdowndir_handler<L: Language + 'static>(
     dir_path: &str,
