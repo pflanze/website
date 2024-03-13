@@ -541,6 +541,17 @@ fn format_naivedate(nd: NaiveDate) -> String {
     format!("{}", nd)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn t_format_naivedate() {
+        assert_eq!(format_naivedate(NaiveDate::from_ymd_opt(2022, 10, 31).unwrap()),
+                   "2022-10-31");
+    }
+}
+
 pub fn blog_handler<L: Language + 'static>(
     blog: Arc<Blog>, style: Arc<dyn LayoutInterface<L>>
 ) -> Arc<dyn Handler<L>>
