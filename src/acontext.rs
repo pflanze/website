@@ -154,7 +154,7 @@ impl<'r, 's, 'h, L: Language + Default> AContext<'r, 's, 'h, L> {
     
     /// Create any response headers that are warranted given the
     /// request or changes applied to self.
-    pub fn set_headers(&mut self, headers: &mut Vec<(Cow<'static, str>, Cow<'static, str>)>) {
+    pub fn set_headers(&self, headers: &mut Vec<(Cow<'static, str>, Cow<'static, str>)>) {
         possibly_add_cookie_header(headers,
                                    self.lang_cookie.key(),
                                    self.lang_cookie.take_out_value(),

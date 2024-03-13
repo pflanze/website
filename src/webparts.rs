@@ -107,7 +107,7 @@ pub fn server_handler<'t, L: Language + Default>(
                 };
                 match AContext::new(request, &listen_addr, session, &sessionid_hasher,
                                     &lang_from_path) {
-                    Ok(mut context) => {
+                    Ok(context) => {
                         let mut aresponse= okhandler(&context);
                         context.set_headers(&mut aresponse.response.headers);
                         aresponse
