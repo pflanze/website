@@ -2,21 +2,19 @@
 //! Components making up a website, parameterized via a trait.
 
 use std::{path::{PathBuf, Path},
-          sync::{Arc, Mutex},
+          sync::Arc,
           time::{SystemTime, Instant, Duration},
           fmt::Debug};
 
 use anyhow::{Result, Context, anyhow, bail};
-use blake3::Hasher;
 use chrono::NaiveDate;
 use kstring::KString;
 use rand::{prelude::thread_rng, Rng};
 use rand_distr::Weibull;
-use rouille::{Response, Request, post_input, session::session};
-use scoped_thread_pool::Pool;
+use rouille::{Response, post_input};
 
 use crate::{acontext::AContext,
-            ahtml::{HtmlAllocator, AId, Node, P_META, TryCollectBody, AllocatorPool,
+            ahtml::{HtmlAllocator, AId, Node, P_META, TryCollectBody,
                     att, opt_att},
             webutils::{htmlresponse, request_resolve_relative, errorpage_from_status},
             http_response_status_codes::HttpResponseStatusCode,
@@ -25,110 +23,16 @@ use crate::{acontext::AContext,
             blog::{Blog, BlogNode, BlogPostIndex},
             ppath::PPath,
             trie::TrieIterReportStyle,
-            apachelog::{Logs, log_combined},
-            hostrouter::HostsRouter,
-            http_request_method::{HttpRequestMethodGrouped, HttpRequestMethodSimple},
+            http_request_method::HttpRequestMethodSimple,
             access_control::{check_username_password, CheckAccessErrorKind,
                              db::access_control_transaction, types::{SessionData, GroupId}, statements_and_methods::sessionid_hash},
-            in_threadpool::in_threadpool,
             aresponse::{AResponse, ToAResponse},
-            time_util::{self, now_unixtime},
+            time_util::now_unixtime,
             ipaddr_util::IpAddrOctets,
             auri::AUriLocal,
             notime, path::{path_append, extension_eq, base, suffix}, language::Language};
-use crate::{try_result, warn, nodt, time_guard};
+use crate::{try_result, warn, nodt};
 
-// ------------------------------------------------------------------
-// The mid-level parts
-
-/// Make a handler for Rouille's `start_server` procedure.
-pub fn server_handler<'t, L: Language + Default>(
-    listen_addr: String,
-    hostsrouter: Arc<HostsRouter<L>>,
-    allocatorpool: &'static AllocatorPool,
-    threadpool: Arc<Pool>,
-    sessionid_hasher: Hasher,
-    lang_from_path: Arc<dyn Fn(&PPath<KString>) -> Option<L> + Send + Sync>,
-) -> impl for<'r> Fn(&'r Request) -> Response
-{
-    move |request: &Request| -> Response {
-        time_guard!("server_handler"); // timings including infrastructure cost
-        let lang_from_path = lang_from_path.clone();
-        session(request, "sid", 3600 /*sec*/, |session| {
-            let aresponse = in_threadpool(threadpool.clone(), || -> AResponse {
-                let okhandler = |context: &AContext<L>| -> AResponse {
-                    log_combined(
-                        context,
-                        || -> (Arc<Mutex<Logs>>, anyhow::Result<AResponse>) {
-                            let method = context.method();
-                            let unimplemented = |methodname| {
-                                warn!("method {methodname:?} not implemented (yet)");
-                                (hostsrouter.logs.clone(),
-                                 Ok(errorpage_from_status(
-                                     HttpResponseStatusCode::NotImplemented501).into()))
-                            };
-                            match method.to_grouped() {
-                                HttpRequestMethodGrouped::Simple(simplemethod) => {
-                                    let mut guard = allocatorpool.get();
-                                    let allocator = guard.allocator();
-                                    if let Some(host) = context.host() {
-                                        let lchost = host.to_lowercase();
-                                        if let Some(hostrouter) = hostsrouter.routers.get(
-                                            &KString::from_string(lchost))
-                                        {
-                                            return hostrouter.handle_request(
-                                                context, simplemethod, allocator)
-                                        }
-                                    }
-                                    if let Some(fallback) = &hostsrouter.fallback {
-                                        return fallback.handle_request(
-                                            context, simplemethod, allocator)
-                                    }
-                                }
-                                HttpRequestMethodGrouped::Document(documentmethod) => {
-                                    return unimplemented(
-                                        documentmethod.to_http_request_method().as_str())
-                                }
-                                HttpRequestMethodGrouped::Special(specialmethod) =>
-                                    // XX should at least implement OPTIONS, or ?
-                                    return unimplemented(
-                                        specialmethod.to_http_request_method().as_str())
-                                    // match specialmethod {
-                                    //     HttpRequestMethodSpecial::OPTIONS =>
-                                    //         return unimplemented(),
-                                    //     HttpRequestMethodSpecial::TRACE =>
-                                    //         return unimplemented(),
-                                    //     HttpRequestMethodSpecial::CONNECT =>
-                                    //         return unimplemented(),
-                                    // },
-                            }
-                            (hostsrouter.logs.clone(),
-                             Ok(errorpage_from_status(HttpResponseStatusCode::NotFound404)
-                                .into()))
-                        })
-                };
-                match AContext::new(request, &listen_addr, session, &sessionid_hasher,
-                                    lang_from_path) {
-                    Ok(context) => {
-                        let mut aresponse= okhandler(&context);
-                        context.set_headers(&mut aresponse.response.headers);
-                        aresponse
-                    }
-                    Err(e) => {
-                        warn!("{e}");
-                        errorpage_from_status(
-                            HttpResponseStatusCode::InternalServerError500).into()
-                    }
-                }
-            }).expect("only ever fails if thread fails outside catch_unwind");
-            let AResponse { response, sleep_until } = aresponse;
-            if let Some(t) = sleep_until {
-                time_util::sleep_until(t);
-            }
-            response
-        })
-    }
-}
 
 // ------------------------------------------------------------------
 // The mid-level parts, building elements
