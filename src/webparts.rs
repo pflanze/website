@@ -48,10 +48,12 @@ pub fn server_handler<'t, L: Language + Default>(
     allocatorpool: &'static AllocatorPool,
     threadpool: Arc<Pool>,
     sessionid_hasher: Hasher,
-    lang_from_path: impl Fn(&PPath<KString>) -> Option<L> + Send + Sync,
-) -> impl for<'r> Fn(&'r Request) -> Response {
+    lang_from_path: Arc<dyn Fn(&PPath<KString>) -> Option<L> + Send + Sync>,
+) -> impl for<'r> Fn(&'r Request) -> Response
+{
     move |request: &Request| -> Response {
         time_guard!("server_handler"); // timings including infrastructure cost
+        let lang_from_path = lang_from_path.clone();
         session(request, "sid", 3600 /*sec*/, |session| {
             let aresponse = in_threadpool(threadpool.clone(), || -> AResponse {
                 let okhandler = |context: &AContext<L>| -> AResponse {
@@ -106,7 +108,7 @@ pub fn server_handler<'t, L: Language + Default>(
                         })
                 };
                 match AContext::new(request, &listen_addr, session, &sessionid_hasher,
-                                    &lang_from_path) {
+                                    lang_from_path) {
                     Ok(context) => {
                         let mut aresponse= okhandler(&context);
                         context.set_headers(&mut aresponse.response.headers);

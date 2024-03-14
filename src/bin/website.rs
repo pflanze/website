@@ -1,8 +1,6 @@
 use std::sync::Arc;
-use std::thread;
 use blake3::Hasher;
 use kstring::KString;
-use scoped_thread_pool;
 use website::access_control::db::access_control_transaction;
 use website::access_control::statements_and_methods::DO_WARN_THREAD;
 use website::access_control::transaction::TransactError;
@@ -20,16 +18,16 @@ use website::io_util::my_read_to_string;
 use website::lang_en_de::Lang;
 use website::path::base_and_suffix;
 use website::ppath::PPath;
+use website::rouille_runner::{RouilleRunner, Tlskeys};
 use website::style::footnotes::{WikipediaStyle, BlogStyle};
 use website::handler::{ExactFnHandler, RedirectHandler};
 use website::handler::FileHandler;
 use lazy_static::lazy_static;
 use website::markdown::StylingInterface;
-use rouille::Server;
 use website::nav::{Nav, NavEntry, SubEntries};
 use website::router::MultiRouter;
 use website::util::{log_basedir, getenv_or, getenv, xgetenv, getenv_bool};
-use website::webparts::{markdownpage_handler, blog_handler, server_handler,
+use website::webparts::{markdownpage_handler, blog_handler,
                         login_handler, Restricted, unlisted_markdowndir_handler,
                         language_handler, mixed_dir_handler};
 use website::website_layout::WebsiteLayout;
@@ -132,11 +130,6 @@ const NAV: &[(Lang, Nav)] = &[
 lazy_static!{
     static ref ALLOCPOOL: AllocatorPool =
         AllocatorPool::new(1000000, true); // XX config
-}
-
-struct Tlskeys {
-    crt: Vec<u8>,
-    key: Vec<u8>,
 }
 
 fn lang_from_path(path: &PPath<KString>) -> Option<Lang> {
@@ -341,95 +334,47 @@ fn main() -> Result<()> {
         Ok(Arc::new(hostsrouter))
     };
 
-    // This was an attempt to have Rouille use a thread pool with
-    // fixed size, allocating the max pool size ever wanted (enough
-    // for handling attacks as well as the server can). Turns out the
-    // tiny_http backend actually has its own pool so this is
-    // completely pointless. `pool_size_and_stack_size` is from a
-    // patch to Rouille from me.
-    // let httpthreadpool_size = 1200; // per service
-    // let httpstack_size = 8_000_000; // B, default 8 MiB?
-    macro_rules! run {
-        { $server_result:expr } => {
-            $server_result.expect("it failed (I wanted `?`, why size business pls?)")
-                // .pool_size_and_stack_size(httpthreadpool_size, httpstack_size)
-                .run();
-        }
-    }
+    let rouille_runner = RouilleRunner::new(
+        &ALLOCPOOL,
+        sessionid_hasher,
+        Arc::new(lang_from_path));
 
-    // The worker thread pool is kept separate and much smaller, since
-    // it keeps thread local state, also want CPU intensive part to
-    // finish quickly.
-    let workerthreadpool_size = 8 * thread::available_parallelism()
-        .map(|n| n.get())
-        .unwrap_or(1);
-    let workerthreadpool = {
-        let cfg = scoped_thread_pool::ThreadConfig::new()
-            .prefix("scoped_website_worker");
-        let p = Arc::new(scoped_thread_pool::Pool::with_thread_config(
-            workerthreadpool_size, cfg));
-        move || p.clone()
-    };
-    let http_thread = thread::Builder::new().name("website_http".into()).spawn({
+    let http_thread = {
         let addr = std::env::var("LISTEN_HTTP").unwrap_or("127.0.0.1:3000".into());
         let hostsrouter = new_hostsrouter(false)?;
-        let workerthreadpool = workerthreadpool();
-        let sessionid_hasher = sessionid_hasher.clone();
-        move || {
-            run!(Server::new(
-                addr.clone(),
-                server_handler(
-                    addr,
-                    hostsrouter,
-                    &ALLOCPOOL,
-                    workerthreadpool,
-                    sessionid_hasher,
-                    lang_from_path,
-                )));
-        }
-    })?;
+        rouille_runner.run_server(
+            "website_http",
+            addr,
+            None,
+            hostsrouter)?
+    };
 
-    let https_thread = thread::Builder::new().name("website_https".into()).spawn({
+    let https_thread = {
         let addr = std::env::var("LISTEN_HTTPS").unwrap_or("127.0.0.1:3001".into());
         let hostsrouter = new_hostsrouter(true)?;
-        let workerthreadpool = workerthreadpool();
-        let sessionid_hasher = sessionid_hasher.clone();
-        move || {
-            if let Some(tlskeys) = tlskeys {
-                run!(Server::new_ssl(
-                    addr.clone(),
-                    server_handler(
-                        addr,
-                        hostsrouter,
-                        &ALLOCPOOL,
-                        workerthreadpool,
-                        sessionid_hasher,
-                        lang_from_path,
-                    ),
-                    tlskeys.crt,
-                    tlskeys.key));
+        if let Some(tlskeys) = tlskeys {
+            Some(rouille_runner.run_server(
+                "website_https",
+                addr,
+                Some(tlskeys),
+                hostsrouter)?)
+        } else {
+            if is_dev {
+                // run fake service
+                Some(rouille_runner.run_server(
+                    "website_https",
+                    addr,
+                    None,
+                    hostsrouter)?)
             } else {
-                if is_dev {
-                    // run fake service
-                    run!(Server::new(
-                        addr.clone(),
-                        server_handler(
-                            addr,
-                            hostsrouter,
-                            &ALLOCPOOL,
-                            workerthreadpool,
-                            sessionid_hasher,
-                            lang_from_path,
-                        )));
-                } else {
-                    warn!("don't have keys, thus not running the HTTPS service!");
-                }
+                warn!("don't have keys, thus not running the HTTPS service!");
+                None
             }
         }
-    })?;
+    };
 
     http_thread.join().expect("http thread should not panic");
-    https_thread.join().expect("https thread should not panic");
+    https_thread.map(|t| t.join().expect("https thread should not panic"));
     bail!("Server stopped.");
 }
 

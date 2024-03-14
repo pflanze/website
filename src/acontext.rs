@@ -1,5 +1,5 @@
 use std::{net::{SocketAddr, IpAddr}, io::Write, time::SystemTime,
-          cell::Cell, borrow::Cow};
+          cell::Cell, borrow::Cow, sync::Arc};
 
 use anyhow::{Result, anyhow};
 use blake3::Hasher;
@@ -95,12 +95,11 @@ pub struct AContext<'r, 's, 'h, L: Language> {
 }
 
 impl<'r, 's, 'h, L: Language + Default> AContext<'r, 's, 'h, L> {
-    pub fn new<F>(
+    pub fn new(
         request: &'r Request, listen_addr: &'r str, session: &'r Session<'s>,
         sessionid_hasher: &'h Hasher,
-        lang_from_path: &F,
+        lang_from_path: Arc<dyn Fn(&PPath<KString>) -> Option<L> + Send + Sync>,
     ) -> Result<Self>
-    where F: Fn(&PPath<KString>) -> Option<L> + Send + Sync
     {
         let path_original = request.url(); // path only
         let path: PPath<KString> = PPath::from_str(&path_original);
