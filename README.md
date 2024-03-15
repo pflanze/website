@@ -49,6 +49,7 @@ The `website` program reads a number of environment variables. E.g.:
 
     IS_DEV=1
     SESSIONID_HASHER_SECRET=$your_secret_string
+    WELLKNOWNDIR=data/fallback/
 
 These dirs need to exist (you could also use symlinks):
 
@@ -58,11 +59,12 @@ The `accounts.db` sqlite database file needs to exist. Create via
 
     sqlite3 accounts.db < accounts-schema.sql
 
-Access to the `/preview` path is restricted. Run `cargo run --bin
-access_control -- --help` for how to create a group, users, and adding
-the users to the group. As a minimum:
+Access to the `/preview` and `/fellowship` paths is restricted. Run
+`cargo run --bin access_control -- --help` for how to create a group,
+users, and adding the users to the group. As a minimum:
 
     cargo run --bin access_control -- create-group --group preview
+    cargo run --bin access_control -- create-group --group fellowship
 
 Then for each user:
 
@@ -72,6 +74,9 @@ Then for each user:
 There's currently no rate limiting, so use good passwords (it does
 slow down each login attempt to take a second, though; hence the
 minimum is about 56 bits of entropy).
+
+Run the server via `cargo run --release --bin website`, it expects TLS
+keys and to bind on low port numbers unless `IS_DEV=1` is set.
 
 ## License
 
