@@ -1,4 +1,7 @@
 
+/// Deployment approach that works for me. `netsend` and `gtag` are
+/// from [chj-script](https://github.com/pflanze/chj-scripts.git).
+
 use anyhow::Result;
 use website::{scripting::{capture_strings, xrun}, stringsplit::StringSplit};
 
@@ -23,6 +26,8 @@ fn main() -> Result<()> {
 
     println!("Sending files: {files:?}");
     xrun("netsend", &files)?;
+
+    xrun("gtag", &["deployed"])?;
     
     Ok(())
 }
