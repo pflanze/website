@@ -5,6 +5,7 @@ pub struct StringSplit {
     items: Vec<&'static str>,
 }
 
+/// Owns a `str` and the sub-slices into it after a split.
 impl StringSplit {
     /// Splits a string 
     pub fn split(string: Box<str>, separator: &str, omit_tailing_entry: bool) -> Self {

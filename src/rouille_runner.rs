@@ -1,3 +1,11 @@
+//! A higher level astraction on top of Rouille, tieing together
+//! `AContext`, `AResponse`, `AllocatorPool`, `HostsRouter`, `PPath`,
+//! `apachelog`, and a thread pool to separate worker threads from
+//! HTTP threads.
+
+//! (`rouille` is still used directly in other places, too though, so
+//! it's only a partial, not a closed, abstraction.)
+
 use std::sync::Mutex;
 use std::thread::JoinHandle;
 use std::{sync::Arc, thread};

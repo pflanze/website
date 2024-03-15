@@ -1,3 +1,5 @@
+//! Some higher level astractions for parts of Rouille.
+
 use std::borrow::Cow;
 
 use kstring::KString;

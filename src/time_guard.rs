@@ -1,3 +1,5 @@
+//! Tools for performance debugging.
+
 use std::{time::Instant, fmt::Debug};
 
 

@@ -1,3 +1,6 @@
+//! Tools for writing programs that would usually be done in Bash or
+//! similar.
+
 use std::process::{Command, ExitStatus};
 
 use anyhow::{Result, anyhow, Context, bail};

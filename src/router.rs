@@ -1,3 +1,5 @@
+//! A path router for web services or similar.
+
 use std::{fmt::Debug, borrow::Borrow, slice, iter::Rev};
 use anyhow::{Result, bail};
 use kstring::KString;

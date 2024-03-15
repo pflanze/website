@@ -1,3 +1,5 @@
+//! Utilities for handling time (interfacing with `std::time` and `chrono`).
+
 use std::time::{SystemTime, Instant, Duration};
 
 use chrono::{self, DateTime, NaiveDate, Datelike, TimeZone, NaiveDateTime, Utc};

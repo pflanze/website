@@ -1,5 +1,5 @@
-
-//! Components making up a website, parameterized via a trait.
+//! Handlers and components making up a website, parameterized via a
+//! trait (`LayoutInterface`).
 
 use std::{path::{PathBuf, Path},
           sync::Arc,

@@ -1,5 +1,6 @@
 use crate::str_util::str_take;
 
+/// A human language representation for i18n.
 pub trait Language: Clone + Copy + PartialEq + Eq + Default + Send + Sync {
     type MemberIter: Iterator<Item = Self>;
 

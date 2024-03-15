@@ -1,4 +1,5 @@
-//! Route according to the domain
+//! Route from a domain (host name) to a handler of paths (which then
+//! routes to a handler for the path).
 
 use std::{sync::{Arc, Mutex}, collections::HashMap};
 

@@ -1,3 +1,5 @@
+//! Concrete layout for bin/website.rs (implements webparts' `LayoutInterface`)
+
 use std::time::SystemTime;
 
 use anyhow::Result;

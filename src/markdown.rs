@@ -1,3 +1,5 @@
+//! Convert markdown to HTML.
+
 use std::{path::PathBuf, fmt::{Display, Debug}, collections::HashMap, panic::RefUnwindSafe};
 use anyhow::{Result, anyhow, bail};
 use backtrace::Backtrace;

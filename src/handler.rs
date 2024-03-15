@@ -1,3 +1,6 @@
+//! Lower level astraction for request handlers. You usually want to
+//! use the higher level ones in `webparts.rs`.
+
 use std::fs::File;
 use std::io::ErrorKind;
 use std::marker::PhantomData;

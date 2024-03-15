@@ -74,6 +74,11 @@ impl CookieKey for LangKey {
     fn default_value(&self) -> &'static str { "en" }
 }
 
+/// The full context of a request. Includes the HTTP reqest itself
+/// (`rouille::Request`), further parsed representations including a
+/// `PPath`, `HttpRequestMethod`, language cookie, as well as session
+/// information if present, also (just for convenience?) a reference
+/// to a `Hasher` for the session id.
 pub struct AContext<'r, 's, 'h, L: Language> {
     // Fallback for host(): what this server listens on; ip:port or
     // domain:port or whatever is deemed suitable
