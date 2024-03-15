@@ -31,7 +31,7 @@ const LAST_MODIFIED_FOR: &[(&str, &str)] = &[
 
 fn last_modified_for(lang: &str) -> &'static str {
     let lmf = AList(LAST_MODIFIED_FOR);
-    lmf.get(&lang).unwrap_or_else(|| lmf.get(&"en").expect("en"))
+    lmf.get(&lang).unwrap_or_else(|| lmf.get(&"en").expect("en always present"))
 }
 
 pub struct WebsiteLayout<L: Language + 'static> {
