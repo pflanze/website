@@ -228,7 +228,9 @@ fn main() -> Result<()> {
             .add("/bench", Arc::new(ExactFnHandler::new(website_benchmark::benchmark)))
             .add("/", language_handler())
         // --------------------------------------------
-        // XX horrible hack, make a dir lister; also redirector for dir; and for non-language urls (ok that one will be above)
+        // XX hack for dual language; todo: make a multi-lingual dir
+        // lister (for single-language purposes, `mixed_dir_handler`
+        // already exists)
             .add("/en.html", markdownpage_handler(&in_datadir("en.en-de.md"), style()))
             .add("/climate.html", markdownpage_handler(&in_datadir("climate.en-umwelt.md"), style()))
             .add("/projects.html", markdownpage_handler(&in_datadir("projects.en-projekte.md"), style()))
