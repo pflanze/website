@@ -552,9 +552,9 @@ impl MarkdownFile {
         options.insert(Options::ENABLE_SMART_PUNCTUATION);// XX config
         options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
 
-        // Parser is NOT supporting streaming. For reasons of shining
-        // in (superficial) performance bencharks?
-        // XX impose a size limit?
+        // `Parser` is NOT supporting streaming. For reasons of
+        // shining in (superficial) performance bencharks?
+        // XX impose a size limit on the markdown file here?
         let s = my_read_to_string(&self.path)?;
         let mut parser = Parser::new_ext(&s, options);
 
