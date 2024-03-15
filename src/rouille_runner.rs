@@ -144,7 +144,11 @@ impl<L: Language + 'static> RouilleRunner<L> {
         // finish quickly.
         let workerthreadpool_size = 8 * thread::available_parallelism()
             .map(|n| n.get())
-            .unwrap_or(1);
+            .unwrap_or_else(
+                |e| {
+                    warn!("couldn't get number of CPU threads thus falling back to 1: {e}");
+                    1
+                });
         let workerthreadpool = {
             let cfg = scoped_thread_pool::ThreadConfig::new()
                 .prefix("scoped_website_worker");
