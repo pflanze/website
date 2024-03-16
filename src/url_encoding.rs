@@ -13,7 +13,7 @@ pub fn url_encode(s: &str) -> String {
 // Thus make our own that owns the string.
 
 #[derive(Debug, thiserror::Error)]
-#[error("url decoding error: {0}")]
+#[error("url decoding error: {0:#}")]
 pub struct UrlDecodingError(Box<String>);
 
 impl From<InvalidPctString<&str>> for UrlDecodingError {

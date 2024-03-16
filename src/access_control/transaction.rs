@@ -6,11 +6,11 @@ use super::{statements_and_methods::{DbConnection, ConnectionAndStatements}, sql
 def_boxed_thiserror!(TransactionError, pub enum TransactionErrorKind {
     #[error("sqlite Db is not connected")]
     NotConnected,
-    #[error("sqlite initialisation error: {0}")]
+    #[error("sqlite initialisation error: {0:#}")]
     InitError(#[from] SQLitePosError),
-    #[error("sqlite error on transaction begin: {0}")]
+    #[error("sqlite error on transaction begin: {0:#}")]
     BeginError(sqlite::Error),
-    #[error("sqlite error on transaction commit: {0}")]
+    #[error("sqlite error on transaction commit: {0:#}")]
     CommitError(sqlite::Error),
 });
 
@@ -86,7 +86,7 @@ impl<'t> Drop for Transaction<'t> {
 // unboxed representation.
 #[derive(thiserror::Error, Debug)]
 pub enum TransactError<E: Debug> {
-    #[error("transaction error: {0}")]
+    #[error("transaction error: {0:#}")]
     TransactionError(TransactionError),
     #[error("error in transaction handler: {0:#}")]
     HandlerError(E),

@@ -9,7 +9,7 @@ use argon2::{
 use crate::def_boxed_thiserror;
 
 def_boxed_thiserror!(HashingError, pub enum HashingErrorKind {
-    #[error("argon2 hashing error: {0}")]
+    #[error("argon2 hashing error: {0:#}")]
     Argon2(argon2::password_hash::Error),
 });
 // Somehow StdError not implemented shows up then trying to use
