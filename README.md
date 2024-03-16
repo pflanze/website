@@ -32,6 +32,7 @@ checked out at `../src/`. So, run:
     cd src
     git clone https://github.com/pflanze/BLAKE3
     git clone https://github.com/pflanze/password-hashes
+    ( cd password-hashes && git checkout -b local cj3 )
     git clone https://github.com/pflanze/addr2line
 
 These repositories, just like this one, carry Git tags signed by
