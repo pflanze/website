@@ -10,7 +10,7 @@ use website::apachelog::Logs;
 use website::acontext::AContext;
 use website::blog::Blog;
 use website::ahtml::{AllocatorPool, Flat, HtmlAllocator, Node, att, AHTML_TRACE};
-use anyhow::{Result, bail, anyhow};
+use anyhow::{Result, bail};
 use website::hostrouter::{HostRouter, HostsRouter};
 use website::http_response_status_codes::HttpResponseStatusCode;
 use website::imageinfo::static_img;
@@ -171,12 +171,13 @@ fn main() -> Result<()> {
     });
     let wwwdir = getenv("WWWDIR")?;
     let domainfallbackdir = getenv("DOMAINFALLBACKDIR")?;
-    let wellknowndir: String = getenv("WELLKNOWNDIR")?.ok_or_else(
-        || anyhow!("Missing WELLKNOWNDIR env var, e.g. /var/www/html/.well-known/"))?;
+    let wellknowndir = getenv("WELLKNOWNDIR")?;
     let tlskeysfilebase = getenv("TLSKEYSFILEBASE")?;
     let is_dev = getenv_bool("IS_DEV")?;
     let ahtml_trace = getenv_bool("AHTML_TRACE")?;
     dbg!(ahtml_trace);
+
+    let do_actual_https = ! is_dev; // whether to actually run encryption on the HTTPS port
 
     AHTML_TRACE.store(ahtml_trace, std::sync::atomic::Ordering::Relaxed);
 
@@ -274,7 +275,7 @@ fn main() -> Result<()> {
                 &format!("{logbasedir}/christianjaeger.ch"), is_https)?
         });
         let mut hostsrouter =
-            if is_dev {
+            if !do_actual_https {
                 HostsRouter::new(
                     // domain fallback:
                     Some(main_hostrouter.clone()),
@@ -300,13 +301,13 @@ fn main() -> Result<()> {
         hostsrouter.add(
             "christianjaeger.ch",
             main_hostrouter);
-        {
+        if let Some(wellknowndir) = &wellknowndir {
             // Must *not* redirect files for letsencrypt, thus need a
             // router for these:
             let mut letsencrypt_router : MultiRouter<Arc<dyn Handler<Lang>>>
                 = MultiRouter::new();
             letsencrypt_router
-                .add("/.well-known", Arc::new(FileHandler::new(&wellknowndir)));
+                .add("/.well-known", Arc::new(FileHandler::new(wellknowndir)));
             hostsrouter.add(
                 "www.christianjaeger.ch",
                 Arc::new(HostRouter {
@@ -332,6 +333,10 @@ fn main() -> Result<()> {
                     logs: Logs::open_in_basedir(
                         &format!("{logbasedir}/www.christianjaeger.ch"), is_https)?
                 }));
+        } else {
+            if do_actual_https {
+                warn!("Missing WELLKNOWNDIR env var, e.g. /var/www/html/.well-known/");
+            }
         }
         Ok(Arc::new(hostsrouter))
     };
@@ -361,7 +366,7 @@ fn main() -> Result<()> {
                 Some(tlskeys),
                 hostsrouter)?)
         } else {
-            if is_dev {
+            if !do_actual_https {
                 // run fake service
                 Some(rouille_runner.run_server(
                     "website_https",
