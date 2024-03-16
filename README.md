@@ -46,11 +46,20 @@ Doesn't need anything, just connect to port 3000 on localhost.
 
 ### `website`
 
-The `website` program reads a number of environment variables. E.g.:
+The `website` program reads a number of environment variables:
 
-    IS_DEV=1
-    SESSIONID_HASHER_SECRET=$your_secret_string
-    WELLKNOWNDIR=data/fallback/
+    export IS_DEV=1  # do not listen on low port numbers, do not expect TLS keys
+    export SESSIONID_HASHER_SECRET=$your_secret_string
+    export TLSKEYSFILEBASE=... # optional base path to TLS files; .crt and .key are appended
+    export WWWDIR=data/fallback/  # optional fallback for serving static files
+    export WELLKNOWNDIR=~/.well-known/ # optional dir for Let's encrypt to fetch files from
+
+`SESSIONID_HASHER_SECRET` is used as input to hash session ids before
+storing them in the database, to avoid potential side channel attacks
+on them. Any random string works but needs to stay the same across
+restarts so that sessions from before the restart continue to work,
+and should be random enough to serve its purpose (e.g. `head -c 20
+/dev/urandom |base64`).
 
 These dirs need to exist (you could also use symlinks):
 
@@ -64,20 +73,33 @@ Access to the `/preview` and `/fellowship` paths is restricted. Run
 `cargo run --bin access_control -- --help` for how to create a group,
 users, and adding the users to the group. As a minimum:
 
-    cargo run --bin access_control -- create-group --group preview
-    cargo run --bin access_control -- create-group --group fellowship
+    cargo build --bin access_control
+    target/debug/access_control create-group --group preview
+    target/debug/access_control create-group --group fellowship
 
-Then for each user:
+Then for each user (replace `$USER` with your desired username if it's
+not your unix user name):
 
-    cargo run --bin access_control -- create-user --user foo
-    cargo run --bin access_control -- add --group preview --user foo
+    target/debug/access_control create-user --user $USER
+    target/debug/access_control add --group preview --user $USER
 
 There's currently no rate limiting, so use good passwords (it does
 slow down each login attempt to take a second, though; hence the
 minimum is about 56 bits of entropy).
 
 Run the server via `cargo run --release --bin website`, it expects TLS
-keys and to bind on low port numbers unless `IS_DEV=1` is set.
+keys (set the `TLSKEYSFILEBASE` env var) and to bind on low port
+numbers unless `IS_DEV=1` is set.
+
+## Debugging
+
+### Tracing HTML origin
+
+When the `AHTML_TRACE` env var is set to a true value or the empty
+string, every HTML element that doesn't already have a `title`
+attribute will gain one that contains a backtrace from the location
+where the constructor for that element is called. This allows to trace
+back to the code that generated the element in question.
 
 ## License
 
