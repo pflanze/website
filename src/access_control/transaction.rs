@@ -88,7 +88,7 @@ impl<'t> Drop for Transaction<'t> {
 pub enum TransactError<E: Debug> {
     #[error("transaction error: {0}")]
     TransactionError(TransactionError),
-    #[error("error in transaction handler: {0}")]
+    #[error("error in transaction handler: {0:#}")]
     HandlerError(E),
 }
 
