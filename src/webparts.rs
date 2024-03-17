@@ -646,6 +646,11 @@ fn show_login_form<L: Language>(
                         form)
 }
 
+/// Handler, usually at "/login", for asking the user for
+/// username/password, verifying that securely (allowing for retries)
+/// and storing a successful login in the database, then redirecting
+/// back to the path that's stored in the `return_path` query string
+/// parameter.
 pub fn login_handler<L: Language + 'static>(
     style: Arc<dyn LayoutInterface<L>>
 ) -> Arc<dyn Handler<L>> {
