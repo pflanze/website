@@ -13,7 +13,7 @@ use lazy_static::lazy_static;
 use crate::{html::meta::{MetaDb, ElementMeta, read_meta_db},
             myfrom::MyFrom,
             warn,
-            u24::{U24, U24MAX}};
+            u24::{U24, U24MAX}, partialbacktrace::PartialBacktrace};
 use crate::arc_util::IntoArc;
 
 // once again
@@ -686,12 +686,14 @@ impl HtmlAllocator {
                 }
                 vec.push(id)?;
             }
-            let bt = Backtrace::new();
+            let bt_str = PartialBacktrace::new().part_to_string(1, "src/rouille_runner.rs");
             if seen_title {
-                warn!("element {:?} already has 'title' attribute, not adding tracing at:\n{bt:?}",
+                warn!("element {:?} already has 'title' attribute, not adding tracing at:\n\
+                       {bt_str}",
                       &*meta.tag_name);
             } else {
-                vec.push(self.attribute("title", format!("Generated at:\n{bt:?}"))?)?;
+                vec.push(self.attribute("title", format!("Generated at:\n\
+                                                          {bt_str}"))?)?;
             }
             attr = vec.to_aslice(self)?;
         }
