@@ -1,3 +1,8 @@
+//! Wrapper around the `backtrace` crate to show only part of the
+//! stack frames (skip some at the beginning and end).
+
+use std::fmt::Write;
+
 use backtrace::Backtrace;
 
 
@@ -39,6 +44,9 @@ impl PartialBacktrace {
         PartialBacktrace { bt: Backtrace::new() }
     }
 
+    /// Show the stack frames after the first `skip` ones, until
+    /// reaching one (excluding it) that refers to a file with a path
+    /// that ends in `end_file`.
     pub fn part_to_string(&self, skip: usize, end_file: &str) -> String {
         let mut bt_str = String::new();
         let frames = &self.bt.frames()[skip..];
@@ -54,7 +62,6 @@ impl PartialBacktrace {
                     if p.ends_with(end_file) {
                         break 'outer;
                     }
-                    use std::fmt::Write;
                     let name = sym.name().map(|s| cut_hex(s.to_string()))
                         .unwrap_or_else(|| " XX missing name ".into());
                     if subframeno == 0 {
@@ -77,11 +84,8 @@ impl PartialBacktrace {
             }
             frameno += 1;
         }
-        {
-            use std::fmt::Write;
-            writeln!(&mut bt_str, " (..{})",
-                     frames.len() - 1).unwrap();
-        }
+        writeln!(&mut bt_str, " (..{})",
+                 frames.len() - 1).unwrap();
         bt_str
     }
 }
