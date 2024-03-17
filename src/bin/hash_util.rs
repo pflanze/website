@@ -11,14 +11,21 @@ fn main() -> Result<()> {
     let args: &[&str] = _args.as_ref();
 
     match args {
-        ["create", password] => {
+        ["createpassword", password] => {
             let r = create_password_hash(password)?;
             println!("{r}");
             Ok(())
         }
-        ["verify", password, existing_hash] => {
+        ["verifypassword", password, existing_hash] => {
             let r = verify_password(password, existing_hash)?;
             println!("{r}");
+            Ok(())
+        }
+        ["blake3", string] => {
+            let mut h = blake3::Hasher::new();
+            h.update(string.as_bytes());
+            let hash = h.finalize();
+            println!("{hash}");
             Ok(())
         }
         _ => bail!("invalid arguments, read the source code please!")
