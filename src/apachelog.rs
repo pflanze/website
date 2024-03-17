@@ -58,6 +58,8 @@ pub fn write_combined<L: Language>(
             let session_id = context.session_id();
             if let Some(user) = get_user_from_session_id(
                 session_id, context.sessionid_hasher())? {
+                // we already have a String in username, to_string
+                // just moves it out; hence use Cow
                 Cow::from(user.username.to_string())
             } else {
                 Cow::from("-")
