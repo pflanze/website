@@ -13,7 +13,7 @@ use anyhow::Result;
 use chrono::{DateTime, Utc, Datelike, Timelike};
 use rouille::ResponseBody;
 
-use crate::access_control::get_user_from_session_id;
+use crate::access_control::get_user_from_context;
 use crate::acontext::AContext;
 use crate::aresponse::AResponse;
 use crate::date_format::months_short;
@@ -54,16 +54,10 @@ pub fn write_combined<L: Language>(
     // request started
     let now = SystemTime::now();
     let user =
-        if context.session().client_has_sid() {
-            let session_id = context.session_id();
-            if let Some(user) = get_user_from_session_id(
-                session_id, context.sessionid_hasher())? {
-                // we already have a String in username, to_string
-                // just moves it out; hence use Cow
-                Cow::from(user.username.to_string())
-            } else {
-                Cow::from("-")
-            }
+        if let Some(user) = get_user_from_context(context)? {
+            // we already have a String in username, to_string
+            // just moves it out; hence use Cow
+            Cow::from(user.username.to_string())
         } else {
             Cow::from("-")
         };

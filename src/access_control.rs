@@ -9,7 +9,7 @@ pub mod sqliteposerror;
 
 use crate::{access_control::trimcheck::{trimcheck_username, trimcheck_password},
             hash_util::{verify_password, HashingError},
-            def_boxed_thiserror, warn};
+            def_boxed_thiserror, warn, acontext::AContext, language::Language};
 use self::{db::access_control_transaction,
            types::User,
            trimcheck::InputCheckFailure,
@@ -88,3 +88,17 @@ pub fn get_user_from_session_id(
         }
     }
 }
+
+// Now need dependency on AContext anyway (move to sep file?)
+pub fn get_user_from_context<L: Language>(
+    context: &AContext<L>
+) -> Result<Option<User>, CheckAccessError> {
+    if context.session().client_has_sid() {
+        let session_id = context.session_id();
+        Ok(get_user_from_session_id(
+            session_id, context.sessionid_hasher())?)
+    } else {
+        Ok(None)
+    }
+}
+
