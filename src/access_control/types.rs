@@ -93,6 +93,9 @@ impl UserOrGroupName {
     pub fn to_string(self) -> String {
         self.0
     }
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
 }
 impl TryFrom<String> for UserOrGroupName {
     type Error = UserOrGroupNameError;
@@ -120,6 +123,17 @@ pub struct User {
     pub name: String,
     pub surname: String,
     pub hashed_pass: String,
+}
+
+impl User {
+    pub fn displayname(&self) -> String {
+        let mut displayname = format!("{} {}", self.name, self.surname);
+        if displayname.chars().all(|c| c.is_whitespace()) {
+            displayname.clear();
+            displayname.push_str(self.username.as_str());
+        }
+        displayname
+    }
 }
 
 impl FromStatement for User {
