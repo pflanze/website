@@ -84,7 +84,7 @@ impl PartialBacktrace {
             }
             frameno += 1;
         }
-        writeln!(&mut bt_str, " (..{})",
+        writeln!(&mut bt_str, " ({frameno}..{} skipped)",
                  frames.len() - 1).unwrap();
         bt_str
     }
