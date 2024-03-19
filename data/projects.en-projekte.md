@@ -19,11 +19,11 @@ The code is [public](https://github.com/pflanze/website), but while
 I'll be able to base other websites on it, it's not clear whether it
 will be as useful for others in the current form.  It also contains
 the code to serve a blog. I'll publish a post about this
-code base.
+codebase.
 
 ## Teaching programming with C
 
-[Cj50](https://github.com/pflanze/cj50) is a code base to help write
+[Cj50](https://github.com/pflanze/cj50) is a codebase to help write
 graphical programs (simple games) in the programming language C, in a
 style that's reminiscent of the programming language Rust, i.e. more
 modern, consistent, and in a way that should make learning Rust more
@@ -32,7 +32,7 @@ like to start learning Rust?
 
 ## Data science & OpenStreetMap
 
-Working with a scientist, I'm developing a code base in Rust to
+Working with a scientist, I'm developing a codebase in Rust to
 evaluate [health data from
 Brazil](https://github.com/climatehealthsim/brazildata). This also
 includes the extraction of geographical data from OpenStreetMap. The
