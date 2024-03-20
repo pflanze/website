@@ -21,7 +21,7 @@ fn main() -> Result<()> {
                          "target/release/website",
                          "target/release/access_control"];
 
-    let gls = gls("data")?;
+    let gls = gls("content")?;
     files.extend(gls.items());
 
     println!("Sending files: {files:?}");

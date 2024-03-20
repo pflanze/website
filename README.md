@@ -51,7 +51,7 @@ The `website` program reads a number of environment variables:
     export IS_DEV=1  # do not listen on low port numbers, do not expect TLS keys
     export SESSIONID_HASHER_SECRET=$your_secret_string
     export TLSKEYSFILEBASE=... # optional base path to TLS files; .crt and .key are appended
-    export WWWDIR=data/fallback/  # optional fallback for serving static files
+    export WWWDIR=content/fallback/  # optional fallback for serving static files
     export WELLKNOWNDIR=~/.well-known/ # optional dir for Let's encrypt to fetch files from
 
 `SESSIONID_HASHER_SECRET` is used as input to hash session ids before
@@ -63,7 +63,7 @@ and should be random enough to serve its purpose (e.g. `head -c 20
 
 These dirs need to exist (you could also use symlinks):
 
-    mkdir data/{blog,preview}
+    mkdir content/{blog,preview}
 
 The `accounts.db` sqlite database file needs to exist. Create via 
 

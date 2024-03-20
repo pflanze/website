@@ -164,7 +164,7 @@ fn main() -> Result<()> {
     };
 
     let in_datadir = Arc::new({
-        let base = getenv_or("DATADIR", Some("data"))?;
+        let base = getenv_or("CONTENTDIR", Some("content"))?;
         move |subpath: &str| -> String {
             format!("{base}/{subpath}")
         }
