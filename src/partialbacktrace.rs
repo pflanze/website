@@ -41,7 +41,7 @@ fn cut_hex(mut s: String) -> String {
 
 impl PartialBacktrace {
     pub fn new() -> Self {
-        PartialBacktrace { bt: Backtrace::new() }
+        Self { bt: Backtrace::new() }
     }
 
     /// Show the stack frames after the first `skip` ones, until
@@ -54,7 +54,7 @@ impl PartialBacktrace {
         'outer: for frame in frames.iter() {
             let mut subframeno = 0;
             for sym in frame.symbols() {
-                // Have to reimplement everything as Backtrace' frames
+                // Have to reimplement everything as Backtrace's frames
                 // don't have the formatting code, only Backtrace as a
                 // whole has.
                 if let Some(path) = sym.filename() {
