@@ -1,0 +1,15 @@
+# atty 0.2.11 affected by RUSTSEC-2021-0145 (unsound)
+RUSTSEC-2021-0145
+
+# buf_redux 0.8.4 affected by RUSTSEC-2023-0028 (unmaintained)
+# multipart 0.18.0 affected by RUSTSEC-2023-0050 (unmaintained)
+# safemem 0.3.3 affected by RUSTSEC-2023-0081 (unmaintained)
+# twoway 0.1.8 affected by RUSTSEC-2021-0146 (unmaintained)
+RUSTSEC-2023-0028
+RUSTSEC-2023-0050
+RUSTSEC-2023-0081
+RUSTSEC-2021-0146
+
+# rustls 0.20.9 affected by RUSTSEC-2024-0336 (`rustls::ConnectionCommon::complete_io` could fall into an infinite loop based on network input)
+# XX ah heh todo!
+RUSTSEC-2024-0336
