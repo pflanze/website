@@ -13,3 +13,11 @@ RUSTSEC-2021-0146
 # rustls 0.20.9 affected by RUSTSEC-2024-0336 (`rustls::ConnectionCommon::complete_io` could fall into an infinite loop based on network input)
 # XX ah heh todo!
 RUSTSEC-2024-0336
+
+# atty 0.2.11 affected by RUSTSEC-2024-0375 (unmaintained)
+# instant 0.1.12 affected by RUSTSEC-2024-0384 (unmaintained)
+# proc-macro-error 1.0.4 affected by RUSTSEC-2024-0370 (unmaintained)
+RUSTSEC-2024-0375 
+RUSTSEC-2024-0384
+RUSTSEC-2024-0370 
+
