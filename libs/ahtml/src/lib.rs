@@ -262,7 +262,7 @@ impl<'p> AllocatorGuard<'p> {
 
         if self._allocator.is_none() {
             // eprintln!("allocating a new Allocator");
-            self._allocator = Some(HtmlAllocator::new(
+            self._allocator = Some(HtmlAllocator::new_with_metadb(
                 self.pool.max_id,
                 self.pool.metadb.clone(),
             ));
@@ -320,7 +320,10 @@ fn next_allocator_id() -> U24 {
 pub static AHTML_TRACE: AtomicBool = AtomicBool::new(false);
 
 impl HtmlAllocator {
-    pub fn new(max_id: u32, metadb: Option<&'static MetaDb>) -> HtmlAllocator {
+    pub fn new(max_id: u32) -> Self {
+        Self::new_with_metadb(max_id, Some(&*METADB))
+    }
+    pub fn new_with_metadb(max_id: u32, metadb: Option<&'static MetaDb>) -> Self {
         HtmlAllocator {
             regionid: RegionId {
                 allocator_id: next_allocator_id(),
