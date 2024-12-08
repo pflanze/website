@@ -940,6 +940,8 @@ impl<T> Copy for AId<T> {}
 
 
 // AVec lives *outside* an allocator
+/// A vector that allocates its storage from a `HtmlAllocator`. When
+/// finished, convert to `ASlice` via `as_slice()`.
 pub struct AVec<'a, T: AllocatorType> {
     t: PhantomData<T>,
     allocator: &'a HtmlAllocator,
@@ -1058,6 +1060,7 @@ impl<'a, T: AllocatorType> AVec<'a, T> {
 
 // about storage *inside* an allocator, thus no allocator field. XX
 // could this be improved?
+/// A slice of stored `AId<T>`s inside a `HtmlAllocator`.
 #[derive(Debug)]
 pub struct ASlice<T> {
     t: PhantomData<fn() -> T>,
