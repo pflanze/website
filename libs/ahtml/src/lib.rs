@@ -877,6 +877,15 @@ impl HtmlAllocator {
         self.new_string(s)
     }
 
+    // /// Create a transparent pseudo element with the given body; that
+    // /// body is flattened into the element's body where it is placed.
+    // pub fn flat(
+    //     &self,
+    //     body: impl ToASlice<Node>
+    // ) -> Result<AId<Node>>
+    // {
+    //     body.to_aslice(self)
+    // }
 
     /// Create an element from normal slices or arrays, for nice to use
     /// syntax.
