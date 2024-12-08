@@ -835,6 +835,19 @@ impl HtmlAllocator {
         self.new_string(KString::from_ref(s))
     }
 
+    // (XX hmm, has issue with not offering KString &'static str
+    // optimization, right? This is only a small issue, though. Yes,
+    // use `str` method for that. AH, staticstr, rename it.)
+    pub fn text<T>(
+        &self,
+        s: T
+    ) -> Result<AId<Node>>
+    where KString: MyFrom<T>
+    {
+        self.new_string(KString::myfrom(s))
+    }
+
+    // XX remove now that there's text()?
     pub fn string(
         &self,
         s: String
@@ -855,6 +868,7 @@ impl HtmlAllocator {
         }
     }
 
+    // XX remove now that there's text()?
     pub fn kstring(
         &self,
         s: KString
