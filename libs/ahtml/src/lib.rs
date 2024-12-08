@@ -920,7 +920,7 @@ pub struct RegionId {
 
 #[derive(Debug)]
 pub struct AId<T> {
-    t: PhantomData<fn() -> T>, // reference so that Clone/Copy is not a problem
+    t: PhantomData<fn() -> T>,
     regionid: RegionId,
     id: u32,
 }
