@@ -2,6 +2,7 @@
 
 pub mod myfrom;
 pub mod arc_util;
+pub mod util;
 
 use std::{marker::PhantomData,
           cell::{RefCell, Ref, RefMut},
