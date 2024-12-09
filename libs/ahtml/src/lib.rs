@@ -36,13 +36,25 @@ pub trait Print {
     /// Print serialized HTML.
     fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator)
                   -> Result<()>;
+
     /// Print plain text, completely *ignoring* HTML markup. Can
     /// currently only give an error if encountering preserialized
     /// HTML.
     fn print_plain(&self, out: &mut String, allocator: &HtmlAllocator)
                    -> Result<()>;
 
-    fn to_string(&self, allocator: &HtmlAllocator) -> Result<String> {
+    fn to_html_string(&self, allocator: &HtmlAllocator) -> Result<String> {
+        let mut s = Vec::new();
+        self.print_html(&mut s, allocator)?;
+        Ok(unsafe {
+            // Safe because v was filled from bytes derived from
+            // String/str values and byte string literals (typed in via
+            // Emacs) that were simply concatenated together.
+            String::from_utf8_unchecked(s)
+        })
+    }
+
+    fn to_plain_string(&self, allocator: &HtmlAllocator) -> Result<String> {
         let mut s = String::new();
         self.print_plain(&mut s, allocator)?;
         Ok(s)
