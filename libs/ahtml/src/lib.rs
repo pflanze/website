@@ -954,6 +954,7 @@ pub struct AId<T> {
     regionid: RegionId,
     id: u32,
 }
+
 impl<T: AllocatorType> AId<T> {
     fn new(regionid: RegionId, id: u32) -> AId<T> {
         AId { t: PhantomData, regionid, id }
@@ -968,6 +969,19 @@ impl<T> Clone for AId<T> {
 }
 impl<T> Copy for AId<T> {}
 
+impl Print for AId<Node> {
+    fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator)
+                  -> Result<()> {
+        let node = allocator.get_node(*self).expect("id should resolve: {self:?}");
+        node.print_html(out, allocator)
+    }
+
+    fn print_plain(&self, out: &mut String, allocator: &HtmlAllocator)
+                   -> Result<()> {
+        let node = allocator.get_node(*self).expect("id should resolve: {self:?}");
+        node.print_plain(out, allocator)
+    }
+}
 
 // AVec lives *outside* an allocator
 /// A vector that allocates its storage from a `HtmlAllocator`. When
@@ -1098,6 +1112,7 @@ pub struct ASlice<T> {
     len: u32,
     start: u32, // id bare to retrieve an AId
 }
+
 // again, [derive(Clone)] can't handle it for Clone of T, so do it ourselves:
 impl<T> Clone for ASlice<T> {
     fn clone(&self) -> Self {
