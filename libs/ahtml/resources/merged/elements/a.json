@@ -7,6 +7,12 @@
   "has_closing_tag": true,
   "attributes": [
     {
+      "name": "name",
+      "description": "Anchor -- not part of the standard any more, but sometimes necessary?",
+      "field_name": "name",
+      "ty": "KString"
+    },
+    {
       "name": "href",
       "description": "Address of the hyperlink",
       "field_name": "href",
