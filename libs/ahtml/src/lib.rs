@@ -164,6 +164,14 @@ impl<T: AllocatorType> ToASlice<T> for Flat<T> {
     }
 }
 
+impl ToASlice<Node> for AId<Node> {
+    fn to_aslice(self, html: &HtmlAllocator) -> Result<ASlice<Node>> {
+        let mut vec = html.new_vec();
+        vec.push(self)?;
+        Ok(vec.as_slice())
+    }
+}
+
 // Take ownership of an array (best syntax, and allows to avoid the
 // need for swap), version for attributes:
 
@@ -586,7 +594,7 @@ impl HtmlAllocator {
     }
 
     // For within ids. To get the id, to be of type T.
-    pub fn get_id<T>(&self, id_bare: u32) -> Option<AId<T>> {
+    pub fn get_id<T: AllocatorType>(&self, id_bare: u32) -> Option<AId<T>> {
         // Blindly trusting that the id we are retrieving is pointing
         // to T (XX btw why using a mixed pool for ids, when using
         // separate ones for the objects?)
@@ -946,7 +954,7 @@ pub struct AId<T> {
     regionid: RegionId,
     id: u32,
 }
-impl<T> AId<T> {
+impl<T: AllocatorType> AId<T> {
     fn new(regionid: RegionId, id: u32) -> AId<T> {
         AId { t: PhantomData, regionid, id }
     }
@@ -1150,7 +1158,7 @@ pub struct ASliceAIdIterator<'a, T> {
     id: u32,
     id_end: u32,
 }
-impl<'a, T> Iterator for ASliceAIdIterator<'a, T> {
+impl<'a, T: AllocatorType> Iterator for ASliceAIdIterator<'a, T> {
     type Item = AId<T>;
     fn next(&mut self) -> Option<Self::Item> {
         if self.id < self.id_end {
