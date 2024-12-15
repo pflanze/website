@@ -13,6 +13,12 @@
       "ty": "KString"
     },
     {
+      "name": "border",
+      "description": " -- not part of the standard anymore, but sometimes necessary?",
+      "field_name": "border",
+      "ty": "KString"
+    },
+    {
       "name": "role",
       "description": "Describes the role(s) the current element plays in the context of the document.",
       "field_name": "role",
