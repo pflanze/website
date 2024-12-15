@@ -7,6 +7,18 @@
   "has_closing_tag": true,
   "attributes": [
     {
+      "name": "align",
+      "description": "left|right|center -- not part of the standard anymore, but sometimes necessary?",
+      "field_name": "align",
+      "ty": "KString"
+    },
+    {
+      "name": "valign",
+      "description": "top|middle|bottom -- not part of the standard anymore, but sometimes necessary?",
+      "field_name": "valign",
+      "ty": "KString"
+    },
+    {
       "name": "colspan",
       "description": "Number of columns that the cell is to span",
       "field_name": "colspan",
