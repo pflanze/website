@@ -326,8 +326,7 @@ impl MarkdownMeta {
                     &reference,
                     &fnd.backreferences,
                     &clean_slice,
-                )?,
-                html)?;
+                )?)?;
         }
         Ok((footnotes.len(),
             context.format_footnotes(body.as_slice(), html)?))

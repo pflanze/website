@@ -1076,7 +1076,6 @@ impl<'a, T: AllocatorType> AVec<'a, T> {
     pub fn push_flat(
         &mut self,
         flat: Flat<T>,
-        allocator: &HtmlAllocator
     ) -> Result<()> {
         match flat {
             Flat::None => Ok(()),
@@ -1086,7 +1085,7 @@ impl<'a, T: AllocatorType> AVec<'a, T> {
                 self.push(b)?;
                 Ok(())
             }
-            Flat::Slice(slice) => self.extend_from_slice(&slice, allocator)
+            Flat::Slice(slice) => self.extend_from_slice(&slice, self.allocator)
         }
     }
 
@@ -1251,7 +1250,7 @@ impl<'a, T: AllocatorType> ASlice<T> {
         for i in self.start..end {
             let id = allocator.get_id(i).expect(
                 "slice should always point to allocated storage");
-             v.push_flat(f(id)?, allocator)?; // XX .with_context on f's output?
+             v.push_flat(f(id)?)?; // XX .with_context on f's output?
         }
         Ok(v)
     }
