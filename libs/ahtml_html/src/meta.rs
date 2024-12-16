@@ -63,7 +63,6 @@ pub struct Attribute {
 #[derive(Debug)]
 pub struct ElementMeta {
     pub tag_name: KString,
-    //pub description: KString,-- ah, don't have!
     pub has_global_attributes: bool,
     pub has_closing_tag: bool,
     pub attributes: HashMap<KString, Attribute>,
@@ -82,7 +81,6 @@ impl Eq for ElementMeta {}
 #[derive(Debug)]
 pub struct MetaDb {
     pub global_attribute_names: HashSet<KString>,
-    // ^ currently with no further info about them!
     pub elementmeta: HashMap<KString, ElementMeta>,
 }
 
