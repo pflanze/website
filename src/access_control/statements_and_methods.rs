@@ -4,7 +4,9 @@ use anyhow::{bail, Result};
 use blake3::{Hasher, Hash};
 use sqlite::{Statement, Connection, State, Bindable, BindableWithIndex};
 
-use crate::{warn_thread, defn_with_statement, get_statement, try_sqlite, notime};
+use chj_util::{warn_thread, notime};
+
+use crate::{defn_with_statement, get_statement, try_sqlite};
 use super::{transaction::Transaction,
             types::{User, Group, Count, SessionData, UserId, GroupId, UserOrGroupName},
             util::{get_unique_by, UniqueError, RequiredUniqueError, required_unique},

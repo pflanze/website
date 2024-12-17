@@ -2,7 +2,9 @@ use std::fmt::Debug;
 
 use sqlite::{State, Bindable, Statement};
 
-use crate::{def_boxed_thiserror, try_sqlite, notime_guard};
+use chj_util::notime_guard;
+
+use crate::{def_boxed_thiserror, try_sqlite};
 
 use super::{types::FromStatement, sqliteposerror::SQLitePosError};
 

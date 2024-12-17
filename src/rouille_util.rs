@@ -6,9 +6,10 @@ use kstring::KString;
 use rouille::Request;
 use rouille::input;
 
+use chj_util::warn;
+
 use crate::url_encoding::UrlDecodingError;
 use crate::url_encoding::{url_decode, url_encode};
-use crate::warn;
 
 #[derive(Debug)]
 pub struct RawCookieValue<S>(S)

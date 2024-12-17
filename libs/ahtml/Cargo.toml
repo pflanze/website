@@ -1,0 +1,28 @@
+[package]
+name = "ahtml"
+version = "0.1.0"
+edition = "2021"
+authors = ["Christian Jaeger <ch@christianjaeger.ch>"]
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+chj-util = { path = "../chj-util" }
+ahtml_html = { path = "../ahtml_html" }
+backtrace = "0.3"
+kstring = "1.0"
+anyhow = "1.0.14"
+lazy_static = "1.4.0"
+
+
+[profile.dev]
+panic = "abort"
+# [profile.release]
+# panic = "abort"
+lto = "off"
+
+# Set the default for dependencies.
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+overflow-checks = true

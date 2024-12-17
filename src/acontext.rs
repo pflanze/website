@@ -8,10 +8,12 @@ use rouille::{Request, HeadersIter,
               session::Session,
               input::priority_header_preferred, Response};
 
+use chj_util::warn;
+
 use crate::{ppath::PPath,
             http_request_method::HttpRequestMethod,
             rouille_util::{get_cookie, possibly_add_cookie_header, NewCookieValue},
-            language::Language, warn, auri::QueryString, url_encoding::UrlDecodingError};
+            language::Language, auri::QueryString, url_encoding::UrlDecodingError};
 
 
 pub trait CookieKey {

@@ -7,9 +7,11 @@ pub mod transaction;
 pub mod util;
 pub mod sqliteposerror;
 
+use chj_util::warn;
+
 use crate::{access_control::trimcheck::{trimcheck_username, trimcheck_password},
             hash_util::{verify_password, HashingError},
-            def_boxed_thiserror, warn, acontext::AContext, language::Language};
+            def_boxed_thiserror, acontext::AContext, language::Language};
 use self::{db::access_control_transaction,
            types::User,
            trimcheck::InputCheckFailure,

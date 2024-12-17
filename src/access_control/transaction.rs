@@ -1,6 +1,8 @@
 use std::{ops::{Deref, DerefMut}, fmt::Debug, time::Duration};
 
-use crate::{warn, def_boxed_thiserror, try_sqlite};
+use chj_util::warn;
+
+use crate::{def_boxed_thiserror, try_sqlite};
 use super::{statements_and_methods::{DbConnection, ConnectionAndStatements}, sqliteposerror::SQLitePosError};
 
 def_boxed_thiserror!(TransactionError, pub enum TransactionErrorKind {

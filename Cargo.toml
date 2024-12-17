@@ -6,6 +6,10 @@ authors = ["Christian Jaeger <ch@christianjaeger.ch>"]
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+chj-util = { path = "libs/chj-util" }
+ahtml_html = { path = "libs/ahtml_html" }
+ahtml = { path = "libs/ahtml" }
+
 anyhow = "1.0.14"
 thiserror = "1.0"
 kstring = "1.0"

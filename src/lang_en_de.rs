@@ -6,8 +6,9 @@ use std::str::FromStr; // ::from_str()
 use strum::VariantNames; // ::VARIANTS
 use strum::IntoEnumIterator; // ::iter()
 
+use chj_util::warn;
+
 use crate::language::Language;
-use crate::warn;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy,
          strum_macros::EnumVariantNames, // ::VARIANTS

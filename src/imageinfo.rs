@@ -7,8 +7,8 @@ use imagesize::{self, ImageSize};
 use kstring::KString;
 use lazy_static::lazy_static;
 
-use crate::ahtml::{AId, Node, HtmlAllocator};
-use crate::notime as time;
+use ahtml::{AId, Node, HtmlAllocator};
+use chj_util::notime as time;
 
 
 // Made a stupid cache that simply caches each derived value for 2

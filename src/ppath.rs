@@ -6,9 +6,10 @@
 
 use std::fmt::Debug;
 
+use ahtml::myfrom::MyFrom;
 use anyhow::{Result, bail};
 
-use crate::{path::path_segments, util::{rest, first}, myasstr::MyAsStr, myfrom::MyFrom};
+use crate::{path::path_segments, util::{rest, first}, myasstr::MyAsStr};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PPath<Segment: Clone + Debug> {

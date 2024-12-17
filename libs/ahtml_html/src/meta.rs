@@ -3,7 +3,7 @@
 use std::{collections::{HashMap, HashSet}, path::Path, fs::read_dir};
 use anyhow::{anyhow, Result, Context};
 use kstring::KString;
-use crate::html::types::{AttributeType, MergedElement};
+use crate::types::{AttributeType, MergedElement};
 
 // https://developer.mozilla.org/en-US/docs/Web/HTML/Global_attributes
 // Global attributes are attributes common to all HTML elements; they can be used on all elements, though they may have no effect on some elements.

@@ -7,20 +7,24 @@ use html5gum::{Token, HtmlString};
 use kstring::KString;
 use pulldown_cmark::{Parser, Options, Event, Tag, HeadingLevel, LinkType};
 
-use crate::{ahtml::{AId, HtmlAllocator, Node, AVec, P_META,
+use ahtml::{AId, HtmlAllocator, Node, AVec, P_META,
                      H1_META, H2_META, H3_META, H4_META, H5_META, H6_META,
                      DIV_META, OL_META, UL_META, LI_META, PRE_META,
                      BLOCKQUOTE_META, TABLE_META, TH_META, TR_META,
                      TD_META, EM_META, STRONG_META, S_META, METADB, ASlice, Print,
                      TITLE_META, Element, Flat,
-                     att},
-            html::meta::ElementMeta, webutils::email_url,
+            att};
+use ahtml_html::meta::ElementMeta;
+
+use chj_util::{nowarn_todo as warn_todo,
+               nowarn as warn,
+               nodt as dt};
+
+use crate::{webutils::email_url,
             util::{infinite_sequence, autovivify_last, enum_name},
             try_option,
-            io_util::my_read_to_string};
-use crate::{nowarn_todo as warn_todo,
-            nowarn as warn,
-            nodt as dt};
+            io_util::my_read_to_string,
+            myfrom::kstring_myfrom2};
 
 fn error_not_an_html5_tag_name(name: &str) -> anyhow::Error {
     anyhow!("not an HTML5 tag name: {name:?}\n{:?}",
@@ -816,7 +820,7 @@ impl MarkdownFile {
                                 // Inline link like `[foo](bar)`
                                 LinkType::Inline => {
                                     atts.push(
-                                        html.attribute("href", url)?)?;
+                                        html.attribute("href", kstring_myfrom2(url))?)?;
                                     html.a(atts, body)
                                 }
                                 // Reference link like `[foo][bar]`
@@ -824,7 +828,7 @@ impl MarkdownFile {
                                     warn_todo!("LinkType::Reference: \
                                                 url, presumably?");
                                     atts.push(
-                                        html.attribute("href", url)?)?;
+                                        html.attribute("href", kstring_myfrom2(url))?)?;
                                     html.a(atts, body)
                                 },
                                 // Reference without destination in
@@ -842,7 +846,7 @@ impl MarkdownFile {
                                     warn_todo!("LinkType::Shortcut: need to build \
                                                 index and look up");
                                     atts.push(
-                                        html.attribute("href", url)?)?;
+                                        html.attribute("href", kstring_myfrom2(url))?)?;
                                     html.a(atts, body)
                                 },
                                 // Shortcut without destination in the
@@ -851,7 +855,7 @@ impl MarkdownFile {
                                 LinkType::ShortcutUnknown => todo!(),
                                 // Autolink like `<http://foo.bar/baz>`
                                 LinkType::Autolink =>
-                                    html.a([att("href", url)],
+                                    html.a([att("href", kstring_myfrom2(url))],
                                            body),
                                 // Email address in autolink like `<john@example.org>`
                                 LinkType::Email =>
@@ -870,7 +874,7 @@ impl MarkdownFile {
                             let elt = match linktype {
                                 LinkType::Inline => {
                                     atts.push(
-                                        html.attribute("src", url)?)?;
+                                        html.attribute("src", kstring_myfrom2(url))?)?;
                                     html.img(atts, body)
                                 }
                                 LinkType::Reference => todo!(),

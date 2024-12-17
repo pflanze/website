@@ -16,8 +16,10 @@ use rouille::session::session;
 use rouille::{Server, Request, Response};
 use scoped_thread_pool::Pool;
 
+use ahtml::AllocatorPool;
+use chj_util::{warn, time_guard};
+
 use crate::acontext::AContext;
-use crate::ahtml::AllocatorPool;
 use crate::apachelog::{log_combined, Logs};
 use crate::aresponse::AResponse;
 use crate::hostrouter::HostsRouter;
@@ -27,7 +29,7 @@ use crate::in_threadpool::in_threadpool;
 use crate::language::Language;
 use crate::ppath::PPath;
 use crate::webutils::errorpage_from_status;
-use crate::{time_guard, warn, time_util};
+use crate::time_util;
 
 
 /// Make a handler for Rouille's `start_server` procedure.
