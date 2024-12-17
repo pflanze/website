@@ -179,13 +179,14 @@ impl<'t, T1, T2: MyFrom<&'t T1> + Hash + Eq>
 
 // AttributeType: see types.rs
 
-enum StaticAttributeType<'t> {
+enum StaticAttributeType {
     Bool,
     KString,
     Integer,
     Float,
-    Identifier(&'t str),
-    Enumerable(StaticVec<'t, &'t str>),
+    // These are unused:
+    // Identifier(&'t str),
+    // Enumerable(StaticVec<'t, &'t str>),
 }
 
 impl PrintStatic for AttributeType {
@@ -211,17 +212,17 @@ impl PrintStatic for AttributeType {
 }
 
 impl<'t>
-    MyFrom<&StaticAttributeType<'t>>
+    MyFrom<&StaticAttributeType>
     for AttributeType
 {
-    fn myfrom(s: &StaticAttributeType<'t>) -> Self {
+    fn myfrom(s: &StaticAttributeType) -> Self {
         match s {
             StaticAttributeType::Bool => AttributeType::Bool,
             StaticAttributeType::KString => AttributeType::KString,
             StaticAttributeType::Integer => AttributeType::Integer,
             StaticAttributeType::Float => AttributeType::Float,
-            StaticAttributeType::Identifier(v) => AttributeType::Identifier(KString::myfrom(v)),
-            StaticAttributeType::Enumerable(v) => AttributeType::Enumerable(Vec::myfrom(v)),
+            // StaticAttributeType::Identifier(v) => AttributeType::Identifier(KString::myfrom(v)),
+            // StaticAttributeType::Enumerable(v) => AttributeType::Enumerable(Vec::myfrom(v)),
         }
     }
 }
@@ -238,7 +239,7 @@ pub struct Attribute {
 struct StaticAttribute<'t> {
     // pub name: KString, -- already known as key in HashMap
     pub description: &'t str,
-    pub ty: StaticAttributeType<'t>,
+    pub ty: StaticAttributeType,
 }
 
 impl PrintStatic for Attribute {
