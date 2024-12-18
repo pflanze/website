@@ -6,8 +6,8 @@ authors = ["Christian Jaeger <ch@christianjaeger.ch>"]
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-chj-util = { path = "../chj-util" }
-ahtml_html = { path = "../ahtml_html" }
+chj-util = { version = "0.1.0", path = "../chj-util" }
+ahtml_html = { version = "0.1.0", path = "../ahtml_html" }
 backtrace = "0.3"
 kstring = "1.0"
 anyhow = "1.0.14"
