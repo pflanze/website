@@ -7,6 +7,9 @@ posts with user logins.
 It's a work in progress. YMMV. I might work to make this more
 reusable, and publish a blog post about it.
 
+I've started to split off the interesting code as their own crates
+(`ahtml` in particular).
+
 ## Installation
 
 Note: I'm using older versions of dependencies (which I generally do
@@ -90,17 +93,6 @@ minimum is about 56 bits of entropy).
 Run the server via `cargo run --release --bin website`, it expects TLS
 keys (set the `TLSKEYSFILEBASE` env var) and to bind on low port
 numbers unless `IS_DEV=1` is set.
-
-## Debugging
-
-### Tracing HTML origin
-
-When the `AHTML_TRACE` env var is set to a true value or the empty
-string, every HTML element that doesn't already have a `title`
-attribute will gain one that contains a backtrace from the location
-where the constructor for that element is called. This allows to trace
-back to the code that generated the element in question. Important:
-build in debug mode or the backtrace will be useless.
 
 ## License
 

@@ -35,3 +35,15 @@ This provides the following features:
     efficient via region re-use.
 
 This is an alpha release, and needs proper documentation (TODO).
+
+## Debugging
+
+### Tracing HTML origin
+
+When the `AHTML_TRACE` env var is set to a true value or the empty
+string, every HTML element that doesn't already have a `title`
+attribute will gain one that contains a backtrace from the location
+where the constructor for that element is called. This allows to trace
+back to the code that generated the element in question. Important:
+build in debug mode or the backtrace will be useless.
+
