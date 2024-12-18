@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Christian Jaeger <ch@christianjaeger.ch>"]
 license = "MIT OR Apache-2.0"
+description = "An HTML templating and manipulation library"
+repository = "https://github.com/pflanze/website"
 
 [dependencies]
 chj-util = { version = "0.1.0", path = "../chj-util" }
