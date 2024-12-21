@@ -30,10 +30,10 @@ fn t_file_encoding() {
 }
 
 lazy_static!{
-    static ref BOM_AND_DOCTYPE: KString =
+    static ref BOM_AND_DOCTYPE: &'static [u8] =
         // Add a BOM to make sure the output is read correctly from
         // files, too (e.g. by Safari).
-        format!("{BOM}<!DOCTYPE html>\n").into();
+        Box::leak(format!("{BOM}<!DOCTYPE html>\n").into_boxed_str()).as_bytes();
 }
 
 // once again
@@ -439,7 +439,7 @@ impl HtmlAllocator {
     }
 
     pub fn print_html_document(&self, id_: AId<Node>, out: &mut impl Write) -> Result<()> {
-        out.write_all(BOM_AND_DOCTYPE.as_str().as_bytes())?;
+        out.write_all(*BOM_AND_DOCTYPE)?;
         self.print_html_fragment(id_, out)
     }
 
