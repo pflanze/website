@@ -29,6 +29,13 @@ fn t_file_encoding() {
     assert_eq!(BOM.as_bytes(), &[0xEF, 0xBB, 0xBF]); // &[239, 187, 191]
 }
 
+lazy_static!{
+    static ref BOM_AND_DOCTYPE: KString =
+        // Add a BOM to make sure the output is read correctly from
+        // files, too (e.g. by Safari).
+        format!("{BOM}<!DOCTYPE html>\n").into();
+}
+
 // once again
 fn all_whitespace(s: &str) -> bool {
     s.chars().all(|c| c.is_ascii_whitespace())
@@ -432,9 +439,7 @@ impl HtmlAllocator {
     }
 
     pub fn print_html_document(&self, id_: AId<Node>, out: &mut impl Write) -> Result<()> {
-        // Add a BOM to make sure the output is read correctly from
-        // files, too (e.g. by Safari).
-        write!(out, "{BOM}<!DOCTYPE html>\n")?;
+        out.write_all(BOM_AND_DOCTYPE.as_str().as_bytes())?;
         self.print_html_fragment(id_, out)
     }
 
