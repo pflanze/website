@@ -1199,6 +1199,41 @@ impl<'a, T: AllocatorType> Iterator for ASliceAIdIterator<'a, T> {
     }
 }
 
+impl<'a, T: AllocatorType> IntoIterator for AVec<'a, T> {
+    type Item = AId<T>;
+
+    type IntoIter = ASliceAIdIterator<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ASliceAIdIterator {
+            allocator: self.allocator,
+            t: PhantomData,
+            id: self.start,
+            id_end: self.start + self.len,
+        }
+    }
+}
+
+// stupid copy-paste with 1 character added:
+impl<'a, T: AllocatorType> IntoIterator for &AVec<'a, T> {
+    type Item = AId<T>;
+
+    type IntoIter = ASliceAIdIterator<'a, T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        ASliceAIdIterator {
+            allocator: self.allocator,
+            t: PhantomData,
+            id: self.start,
+            id_end: self.start + self.len,
+        }
+    }
+}
+
+// Note: can't implement IntoIterator for ASlice, because ASlice does
+// not have a reference to HtmlAllocator and IntoIterator does not
+// allow to take one. See `iter_aid` method on ASlice instead.
+
 
 impl<'a, T: AllocatorType> ASlice<T> {
     pub fn len(&self) -> u32 { self.len }
