@@ -21,6 +21,14 @@ use chj_util::{warn, u24::{U24, U24MAX}, partialbacktrace::PartialBacktrace};
 use crate::myfrom::MyFrom;
 use crate::arc_util::IntoArc;
 
+// https://www.w3.org/International/questions/qa-byte-order-mark#problems
+const BOM: &str = "\u{FEFF}";
+#[cfg(test)]
+#[test]
+fn t_file_encoding() {
+    assert_eq!(BOM.as_bytes(), &[0xEF, 0xBB, 0xBF]); // &[239, 187, 191]
+}
+
 // once again
 fn all_whitespace(s: &str) -> bool {
     s.chars().all(|c| c.is_ascii_whitespace())
@@ -424,7 +432,9 @@ impl HtmlAllocator {
     }
 
     pub fn print_html_document(&self, id_: AId<Node>, out: &mut impl Write) -> Result<()> {
-        write!(out, "<!DOCTYPE html>\n")?;
+        // Add a BOM to make sure the output is read correctly from
+        // files, too (e.g. by Safari).
+        write!(out, "{BOM}<!DOCTYPE html>\n")?;
         self.print_html_fragment(id_, out)
     }
 
