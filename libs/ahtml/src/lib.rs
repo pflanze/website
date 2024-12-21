@@ -29,12 +29,7 @@ fn t_file_encoding() {
     assert_eq!(BOM.as_bytes(), &[0xEF, 0xBB, 0xBF]); // &[239, 187, 191]
 }
 
-lazy_static!{
-    static ref BOM_AND_DOCTYPE: &'static [u8] =
-        // Add a BOM to make sure the output is read correctly from
-        // files, too (e.g. by Safari).
-        Box::leak(format!("{BOM}<!DOCTYPE html>\n").into_boxed_str()).as_bytes();
-}
+const DOCTYPE: &str = "<!DOCTYPE html>\n";
 
 // once again
 fn all_whitespace(s: &str) -> bool {
@@ -439,7 +434,10 @@ impl HtmlAllocator {
     }
 
     pub fn print_html_document(&self, id_: AId<Node>, out: &mut impl Write) -> Result<()> {
-        out.write_all(*BOM_AND_DOCTYPE)?;
+        // Add a byte-order mark (BOM) to make sure the output is read
+        // correctly from files, too (e.g. by Safari).
+        out.write_all(BOM.as_bytes())?;
+        out.write_all(DOCTYPE.as_bytes())?;
         self.print_html_fragment(id_, out)
     }
 
