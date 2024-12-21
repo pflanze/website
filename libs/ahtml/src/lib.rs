@@ -423,42 +423,45 @@ impl HtmlAllocator {
         noderef.print_html_fragment(out, self)
     }
 
-    fn _to_html_string(&self, id: AId<Node>, want_doctype: bool) -> (Ref<Node>, String) {
-        let noderef = self.get_node(id).expect(
-            // (Why does this return a Result even ? Aha, for
-            // invalid dynamic borrow. Should this be changed to panic,
-            // too?)
-            "invalid generation/allocator_id leads to panic, hence this should \
-             always resolve");
+    pub fn print_html_document(&self, id_: AId<Node>, out: &mut impl Write) -> Result<()> {
+        write!(out, "<!DOCTYPE html>\n")?;
+        self.print_html_fragment(id_, out)
+    }
+
+    pub fn to_html_string(&self, id: AId<Node>, want_doctype: bool) -> String {
         let mut v = Vec::new();
         if want_doctype {
-            write!(&mut v, "<!DOCTYPE html>\n").unwrap();
-        }
-        noderef.print_html_fragment(&mut v, self).expect("no I/O errors can happen");
+            self.print_html_document(id, &mut v)
+        } else {
+            self.print_html_fragment(id, &mut v)
+        }.expect("no I/O errors can happen");
+
         // Safe because v was filled from bytes derived from
         // String/str values and byte string literals (typed in via
         // Emacs) that were simply concatenated together.
-        let s = unsafe { String::from_utf8_unchecked(v) };
-        (noderef, s)
+        unsafe { String::from_utf8_unchecked(v) }
     }
 
     /// Returns an error if id doesn't refer to an Element Node.
     pub fn preserialize(&self, id: AId<Node>) -> Result<SerHtmlFrag> {
-        let (noderef, s) = self._to_html_string(id, false);
-        let n = &*noderef;
-        let meta = match n {
-            Node::Element(e) => e.meta,
-            _ => bail!("can only preserialize element nodes")
+        let meta = {
+            let noderef = self.get_node(id).expect(
+                // (Why does this return a Result even ? Aha, for
+                // invalid dynamic borrow. Should this be changed to panic,
+                // too?)
+                "invalid generation/allocator_id leads to panic, hence this should \
+                 always resolve");
+            let n = &*noderef;
+            match n {
+                Node::Element(e) => e.meta,
+                _ => bail!("can only preserialize element nodes")
+            }
         };
+        let s = self.to_html_string(id, false);
         Ok(SerHtmlFrag {
             meta,
             kstring: KString::from_string(s)
         })
-    }
-
-    pub fn to_html_string(&self, id: AId<Node>, want_doctype: bool) -> String {
-        let (_noderef, s) = self._to_html_string(id, want_doctype);
-        s
     }
 
     // 2x partial copy-paste
