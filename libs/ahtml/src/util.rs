@@ -134,7 +134,7 @@ pub fn autolink(html: &HtmlAllocator, text: &str) -> Result<ASlice<Node>> {
 
 #[cfg(test)]
 mod tests {
-    use ahtml::Print;
+    use crate::Print;
 
     use super::*;
 
@@ -155,7 +155,7 @@ mod tests {
     fn t(s: &str) -> String {
         let html = HtmlAllocator::new(1000);
         let slice = autolink(&html, s).unwrap();
-        slice.to_html_string(&html).unwrap()
+        slice.to_html_fragment_string(&html).unwrap()
     }
 
     #[test]
