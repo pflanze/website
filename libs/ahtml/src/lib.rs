@@ -1069,6 +1069,14 @@ impl<'a, T: AllocatorType> AVec<'a, T> {
         Ok(())
     }
 
+    pub fn append<S: Into<ASlice<T>>>(&mut self, elements: S) -> Result<()> {
+        let aslice: ASlice<T> = elements.into();
+        for aid in aslice.iter_aid(self.allocator) {
+            self.push(aid)?;
+        }
+        Ok(())
+    }
+
     pub fn as_slice(&self) -> ASlice<T> {
         ASlice {
             t: PhantomData,
