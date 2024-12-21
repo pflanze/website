@@ -26,7 +26,7 @@ const BOM: &str = "\u{FEFF}";
 #[cfg(test)]
 #[test]
 fn t_file_encoding() {
-    assert_eq!(BOM.as_bytes(), &[0xEF, 0xBB, 0xBF]); // &[239, 187, 191]
+    assert_eq!(BOM.as_bytes(), &[0xEF, 0xBB, 0xBF]);
 }
 
 const DOCTYPE: &str = "<!DOCTYPE html>\n";
@@ -1021,6 +1021,7 @@ impl<'a, T: AllocatorType> AVec<'a, T> {
             start: 0
         }
     }
+
     pub fn new_with_capacity(
         allocator: &'a HtmlAllocator,
         capacity: u32
@@ -1036,9 +1037,11 @@ impl<'a, T: AllocatorType> AVec<'a, T> {
             start
         })
     }
+
     pub fn len(&self) -> u32 {
         self.len
     }
+
     pub fn push(&mut self, itemid: AId<T>) -> Result<()> {
         if self.len == self.cap {
             // let oldalloclen = self.allocator.ids.borrow().len();//debug
@@ -1065,6 +1068,7 @@ impl<'a, T: AllocatorType> AVec<'a, T> {
         self.len += 1;
         Ok(())
     }
+
     pub fn as_slice(&self) -> ASlice<T> {
         ASlice {
             t: PhantomData,
@@ -1073,17 +1077,10 @@ impl<'a, T: AllocatorType> AVec<'a, T> {
             start: self.start
         }
     }
+
     pub fn reverse(&mut self) {
         let ids = &mut *self.allocator.ids.borrow_mut();
         for i in 0..self.len / 2 {
-            // swap(&mut ids[(self.start + i) as usize],
-            //      &mut ids[(self.start + self.len - 1 - i) as usize]);
-            // nope, can't borrow twice
-            // let mut tmp = ids[(self.start + i) as usize];
-            // swap(&mut tmp,
-            //      &mut ids[(self.start + self.len - 1 - i) as usize]);
-            // ids[(self.start + i) as usize] = tmp;
-            // Ah!:
             ids.swap((self.start + i) as usize,
                      (self.start + self.len - 1 - i) as usize);
         }
