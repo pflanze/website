@@ -35,8 +35,8 @@ pub enum Flat<T> {
 
 pub trait Print {
     /// Print serialized HTML.
-    fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator)
-                  -> Result<()>;
+    fn print_html_fragment(&self, out: &mut impl Write, allocator: &HtmlAllocator)
+                           -> Result<()>;
 
     /// Print plain text, completely *ignoring* HTML markup. Can
     /// currently only give an error if encountering preserialized
@@ -44,9 +44,9 @@ pub trait Print {
     fn print_plain(&self, out: &mut String, allocator: &HtmlAllocator)
                    -> Result<()>;
 
-    fn to_html_string(&self, allocator: &HtmlAllocator) -> Result<String> {
+    fn to_html_fragment_string(&self, allocator: &HtmlAllocator) -> Result<String> {
         let mut s = Vec::new();
-        self.print_html(&mut s, allocator)?;
+        self.print_html_fragment(&mut s, allocator)?;
         Ok(unsafe {
             // Safe because v was filled from bytes derived from
             // String/str values and byte string literals (typed in via
@@ -402,7 +402,7 @@ impl HtmlAllocator {
         bufref
     }
 
-    pub fn print_html(&self, id_: AId<Node>, out: &mut impl Write) -> Result<()> {
+    pub fn print_html_fragment(&self, id_: AId<Node>, out: &mut impl Write) -> Result<()> {
         let noderef = self.get_node(id_).expect(
             // (Why does this return a Result even ? Aha, for
             // invalid dynamic borrow. Should this be changed to panic,
@@ -420,7 +420,7 @@ impl HtmlAllocator {
                            Node::Preserialized"),
             Node::None => {},
         }
-        noderef.print_html(out, self)
+        noderef.print_html_fragment(out, self)
     }
 
     fn _to_html_string(&self, id: AId<Node>, want_doctype: bool) -> (Ref<Node>, String) {
@@ -434,7 +434,7 @@ impl HtmlAllocator {
         if want_doctype {
             write!(&mut v, "<!DOCTYPE html>\n").unwrap();
         }
-        noderef.print_html(&mut v, self).expect("no I/O errors can happen");
+        noderef.print_html_fragment(&mut v, self).expect("no I/O errors can happen");
         // Safe because v was filled from bytes derived from
         // String/str values and byte string literals (typed in via
         // Emacs) that were simply concatenated together.
@@ -970,10 +970,10 @@ impl<T> Clone for AId<T> {
 impl<T> Copy for AId<T> {}
 
 impl Print for AId<Node> {
-    fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator)
+    fn print_html_fragment(&self, out: &mut impl Write, allocator: &HtmlAllocator)
                   -> Result<()> {
         let node = allocator.get_node(*self).expect("id should resolve: {self:?}");
-        node.print_html(out, allocator)
+        node.print_html_fragment(out, allocator)
     }
 
     fn print_plain(&self, out: &mut String, allocator: &HtmlAllocator)
@@ -1424,10 +1424,10 @@ impl<'a> ASlice<Node> {
 }
 
 impl<T: AllocatorType> Print for ASlice<T> {
-    fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator)
+    fn print_html_fragment(&self, out: &mut impl Write, allocator: &HtmlAllocator)
                   -> Result<()> {
         for node in self.iter_node(allocator) {
-            node.print_html(out, allocator)?;
+            node.print_html_fragment(out, allocator)?;
         }
         Ok(())
     }
@@ -1443,7 +1443,7 @@ impl<T: AllocatorType> Print for ASlice<T> {
 
 
 impl Print for (KString, KString) {
-    fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator)
+    fn print_html_fragment(&self, out: &mut impl Write, allocator: &HtmlAllocator)
              -> Result<()> {
         out.write_all(self.0.as_bytes())?; // XX no escape ever needed?
         out.write_all(b"=\"")?;
@@ -1490,10 +1490,10 @@ impl Node {
 }
 
 impl Print for Node {
-    fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator) -> Result<()>
+    fn print_html_fragment(&self, out: &mut impl Write, allocator: &HtmlAllocator) -> Result<()>
     {
         Ok(match self {
-            Node::Element(e) => e.print_html(out, allocator)?,
+            Node::Element(e) => e.print_html_fragment(out, allocator)?,
             Node::String(s) => out.write_all(&allocator.html_escape(s.as_bytes()))?,
             Node::Preserialized(ser) =>
                 out.write_all(ser.kstring.as_bytes())?,
@@ -1560,7 +1560,7 @@ impl Element {
 }
 
 impl Print for Element {
-    fn print_html(&self, out: &mut impl Write, allocator: &HtmlAllocator)
+    fn print_html_fragment(&self, out: &mut impl Write, allocator: &HtmlAllocator)
              -> Result<()>
     {
         let meta = self.meta;
@@ -1569,10 +1569,10 @@ impl Print for Element {
         out.write_all(meta.tag_name.as_bytes())?;
         for att in self.attr.iter_att(allocator) {
             out.write_all(b" ")?;
-            att.print_html(out, allocator)?;
+            att.print_html_fragment(out, allocator)?;
         }
         out.write_all(b">")?;
-        self.body.print_html(out, allocator)?;
+        self.body.print_html_fragment(out, allocator)?;
         if meta.has_closing_tag {
             out.write_all(b"</")?;
             out.write_all(meta.tag_name.as_bytes())?;
