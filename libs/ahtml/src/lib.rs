@@ -18,6 +18,8 @@ use ahtml_html::meta::{MetaDb, ElementMeta, read_meta_db};
 
 use crate::myfrom::MyFrom;
 
+pub const NBSP: &str = "\u{00A0}";
+
 // https://www.w3.org/International/questions/qa-byte-order-mark#problems
 const BOM: &str = "\u{FEFF}";
 #[cfg(test)]
