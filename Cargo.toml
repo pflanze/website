@@ -11,7 +11,7 @@ chj-util = { path = "libs/chj-util" }
 ahtml_html = { path = "libs/ahtml_html" }
 ahtml = { path = "libs/ahtml" }
 
-anyhow = "1.0.14"
+anyhow = { version = "1.0.14", features = ["backtrace"] }
 thiserror = "1.0"
 kstring = "1.0"
 num = "0.4"

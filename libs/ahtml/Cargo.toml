@@ -12,7 +12,7 @@ chj-util = { version = "0.1.0", path = "../chj-util" }
 ahtml_html = { version = "0.1.0", path = "../ahtml_html" }
 backtrace = "0.3"
 kstring = "1.0"
-anyhow = "1.0.14"
+anyhow = { version = "1.0.14", features = ["backtrace"] }
 lazy_static = "1.4.0"
 
 
