@@ -5,7 +5,9 @@ use chj_util::warn;
 use kstring::KString;
 use anyhow::{Result, bail};
 
-use ahtml::{AllocatorPool, Flat, HtmlAllocator, Node, att, AHTML_TRACE};
+use ahtml::allocator::AHTML_TRACE;
+use ahtml::flat::Flat;
+use ahtml::{AllocatorPool, HtmlAllocator, Node, att};
 
 use website::access_control::db::access_control_transaction;
 use website::access_control::statements_and_methods::DO_WARN_THREAD;

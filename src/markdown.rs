@@ -12,8 +12,8 @@ use ahtml::{AId, HtmlAllocator, Node, AVec, P_META,
                      DIV_META, OL_META, UL_META, LI_META, PRE_META,
                      BLOCKQUOTE_META, TABLE_META, TH_META, TR_META,
                      TD_META, EM_META, STRONG_META, S_META, METADB, ASlice, Print,
-                     TITLE_META, Element, Flat,
-            att};
+                     TITLE_META, Element,
+            att, flat::Flat};
 use ahtml_html::meta::ElementMeta;
 
 use chj_util::{nowarn_todo as warn_todo,

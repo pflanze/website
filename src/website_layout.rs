@@ -6,7 +6,7 @@ use anyhow::Result;
 use chrono::Utc;
 use kstring::KString;
 
-use ahtml::{HtmlAllocator, AId, Node, Flat, ToASlice, att};
+use ahtml::{HtmlAllocator, AId, Node, ToASlice, att, flat::Flat};
 use chj_util::warn;
 
 use crate::{webparts::LayoutInterface,
