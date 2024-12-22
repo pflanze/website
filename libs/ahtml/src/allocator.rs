@@ -416,7 +416,7 @@ impl HtmlAllocator {
             meta,
             attr,
             body
-        }))).map_err(|_| anyhow!("Allocator: out of memory"))?;
+        }))).map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
 
@@ -433,7 +433,7 @@ impl HtmlAllocator {
         let mut nodes= self.nodes.borrow_mut();
         let id_ = nodes.len();
         nodes.push_within_capacity_(Some(Node::String(s)))
-            .map_err(|_| anyhow!("Allocator: out of memory"))?;
+            .map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
     pub fn empty_node(&self) -> Result<AId<Node>> {
@@ -441,7 +441,7 @@ impl HtmlAllocator {
         let mut nodes= self.nodes.borrow_mut();
         let id_ = nodes.len();
         nodes.push_within_capacity_(Some(Node::None))
-            .map_err(|_| anyhow!("Allocator: out of memory"))?;
+            .map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
 
@@ -453,7 +453,7 @@ impl HtmlAllocator {
         let mut atts = self.atts.borrow_mut();
         let id_ = atts.len();
         atts.push_within_capacity_(Some(att))
-            .map_err(|_| anyhow!("Allocator: out of memory"))?;
+            .map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
     pub fn attribute<K, V>(
@@ -475,7 +475,7 @@ impl HtmlAllocator {
         let id_ = nodes.len();
         // /copy-paste
         nodes.push_within_capacity_(Some(Node::Preserialized(val.into_arc())))
-            .map_err(|_| anyhow!("Allocator: out of memory"))?;
+            .map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
         // copy-paste
         Ok(AId::new(self.regionid, id_ as u32))
     }
@@ -493,7 +493,7 @@ impl HtmlAllocator {
         let id = v.len();
         let newlen = id + n as usize;
         if newlen > v.capacity() {
-            bail!("Allocator: out of memory")
+            bail!("HtmlAllocator: out of memory")
         }
        
         if let Some((start, end)) = copy_range {
