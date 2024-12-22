@@ -5,6 +5,7 @@ pub mod arc_util;
 pub mod util;
 pub mod allocator;
 pub mod flat;
+pub mod more_vec;
 
 use std::{cell::RefMut,
           io::Write};

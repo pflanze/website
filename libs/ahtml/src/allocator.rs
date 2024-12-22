@@ -4,20 +4,19 @@ use std::{sync::{Mutex, atomic::AtomicBool, Arc},
           marker::PhantomData,
           cmp::max};
 
-use anyhow::{bail, Result};
+use anyhow::{bail, Result, anyhow};
 use ahtml_html::meta::{MetaDb, ElementMeta};
 use backtrace::Backtrace;
 use chj_util::{u24::{U24, U24MAX}, partialbacktrace::PartialBacktrace, warn};
 use kstring::KString;
 use lazy_static::lazy_static;
 
-use crate::{myfrom::MyFrom, arc_util::IntoArc};
+use crate::{myfrom::MyFrom, arc_util::IntoArc, more_vec::MoreVec};
 
 // once again
 fn all_whitespace(s: &str) -> bool {
     s.chars().all(|c| c.is_ascii_whitespace())
 }
-
 
 
 #[derive(Debug)]
@@ -132,8 +131,6 @@ pub struct HtmlAllocator {
     nodes: RefCell<Vec<Option<Node>>>,
     // Storage for references to attributes and nodes:
     ids: RefCell<Vec<u32>>, // for attribute or Node, depending on slot
-    // Maximum length of any of the storage types above:
-    max_id: u32,
     // Temporary storage for serialisation:
     pub(crate) html_escape_tmp: RefCell<Vec<u8>>,
 }
@@ -161,16 +158,22 @@ pub trait ToASlice<T> {
 pub static AHTML_TRACE: AtomicBool = AtomicBool::new(false);
 
 impl HtmlAllocator {
-    pub fn new_with_metadb(max_id: u32, metadb: Option<&'static MetaDb>) -> Self {
+    pub fn new_with_metadb(max_allocations: u32, metadb: Option<&'static MetaDb>) -> Self {
+        let max_allocations = max_allocations as usize;
+        let half_max_alloc = max_allocations / 2;
         HtmlAllocator {
             regionid: RegionId {
                 allocator_id: next_allocator_id(),
                 generation: 0,
             },
-            atts: RefCell::new(Vec::new()),
-            nodes: RefCell::new(Vec::new()),
-            ids: RefCell::new(Vec::new()),
-            max_id,
+            // Assume that attributes are relatively rare, even
+            // half_max_alloc seems overly many, well.
+            atts: RefCell::new(Vec::with_capacity(half_max_alloc)),
+            // Even though ids <= nodes + atts, we don't know how the
+            // distribution between nodes and atts will be, so have to
+            // allocate nodes with (close to) the max, too.
+            nodes: RefCell::new(Vec::with_capacity(max_allocations)),
+            ids: RefCell::new(Vec::with_capacity(max_allocations)),
             metadb,
             html_escape_tmp: RefCell::new(Vec::new()),
         }
@@ -221,7 +224,7 @@ impl HtmlAllocator {
             self.id_to_bare(val);
     }
 
-    pub fn get_node<'a>(&'a self, id: AId<Node>) -> Option<Ref<'a, Node>> {
+    pub fn get_node<'a>(&'a self, id: AId<Node>) -> Option<&'a Node> {
         let b: Ref<Vec<Option<Node>>> = self.nodes.borrow();
         // let m: Ref<Option<&Option<Node>>> = Ref::map(b, |r| &r.get(0));
         // // ^ odd, & of &r.get.. is not in m any more gll  Ref::map does that deref.
@@ -241,7 +244,16 @@ impl HtmlAllocator {
                 None
             }
         }).ok();
-        n
+        let r = n?;
+        let pointer: *const Node = &*r;
+        Some(unsafe {
+            // Safe because we never give mutable access to `Node`s,
+            // and any stored `Node` remains in the region for the
+            // duration of it's lifetime, and, we pre-allocate all
+            // storage via Vec::with_capacity, so the storage will
+            // never be moved. XXX document that upwards, too.
+            &*pointer
+        })
     }
 
     // COPY-PASTE of above with types stripped
@@ -400,15 +412,11 @@ impl HtmlAllocator {
         
         let mut nodes= self.nodes.borrow_mut();
         let id_ = nodes.len();
-        let newlen = id_ + 1;
-        if newlen > self.max_id as usize {
-            bail!("Allocator: out of memory")
-        }
-        nodes.push(Some(Node::Element(Element {
+        nodes.push_within_capacity_(Some(Node::Element(Element {
             meta,
             attr,
             body
-        })));
+        }))).map_err(|_| anyhow!("Allocator: out of memory"))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
 
@@ -424,22 +432,16 @@ impl HtmlAllocator {
         // much COPY-PASTE always
         let mut nodes= self.nodes.borrow_mut();
         let id_ = nodes.len();
-        let newlen = id_ + 1;
-        if newlen > self.max_id as usize {
-            bail!("Allocator: out of memory")
-        }
-        nodes.push(Some(Node::String(s)));
+        nodes.push_within_capacity_(Some(Node::String(s)))
+            .map_err(|_| anyhow!("Allocator: out of memory"))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
     pub fn empty_node(&self) -> Result<AId<Node>> {
         // much COPY-PASTE always
         let mut nodes= self.nodes.borrow_mut();
         let id_ = nodes.len();
-        let newlen = id_ + 1;
-        if newlen > self.max_id as usize {
-            bail!("Allocator: out of memory")
-        }
-        nodes.push(Some(Node::None));
+        nodes.push_within_capacity_(Some(Node::None))
+            .map_err(|_| anyhow!("Allocator: out of memory"))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
 
@@ -450,11 +452,8 @@ impl HtmlAllocator {
     {
         let mut atts = self.atts.borrow_mut();
         let id_ = atts.len();
-        let newlen = id_ + 1;
-        if newlen > self.max_id as usize {
-            bail!("Allocator: out of memory")
-        }
-        atts.push(Some(att));
+        atts.push_within_capacity_(Some(att))
+            .map_err(|_| anyhow!("Allocator: out of memory"))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
     pub fn attribute<K, V>(
@@ -474,19 +473,17 @@ impl HtmlAllocator {
         // ever copy-paste
         let mut nodes= self.nodes.borrow_mut();
         let id_ = nodes.len();
-        let newlen = id_ + 1;
-        if newlen > self.max_id as usize {
-            bail!("Allocator: out of memory")
-        }
         // /copy-paste
-        nodes.push(Some(Node::Preserialized(val.into_arc())));
+        nodes.push_within_capacity_(Some(Node::Preserialized(val.into_arc())))
+            .map_err(|_| anyhow!("Allocator: out of memory"))?;
         // copy-paste
         Ok(AId::new(self.regionid, id_ as u32))
     }
 
-    // Allocate a range of AId:s. We never need to allocate ranges of
+    // Allocate a range of `AId`s. We never need to allocate ranges of
     // Node or attribute values, those are only pushed one by one--we
-    // need alloc for AVec only and those only store AId:s.
+    // need alloc for `AVec` only and those only store `AId`s.
+    // Giving a `copy_range` essentially makes this a "realloc".
     fn alloc(
         &self,
         n: u32,
@@ -495,15 +492,20 @@ impl HtmlAllocator {
         let mut v = self.ids.borrow_mut();
         let id = v.len();
         let newlen = id + n as usize;
-        if newlen > self.max_id as usize {
+        if newlen > v.capacity() {
             bail!("Allocator: out of memory")
         }
+       
         if let Some((start, end)) = copy_range {
             let oldn = end - start;
             assert!(oldn < n);
-            v.extend_from_within(start as usize..end as usize);
+            v.extend_from_within_within_capacity(start as usize..end as usize)
+                .expect("can't happen since we checked newlen above");
         }
-        v.resize(newlen, u32::MAX); // XX weak marker for invalid id
+
+        // And additionally / in any case extend with the new space. Use `u32::MAX`
+        // as a weak marker for invalid id
+        v.resize(newlen, u32::MAX);
         Ok(id as u32)
     }
 
@@ -776,8 +778,8 @@ pub struct ASliceNodeIterator<'a, T> {
     id_end: u32,
 }
 impl<'a, T> Iterator for ASliceNodeIterator<'a, T> {
-    type Item = Ref<'a, Node>;
-    fn next(&mut self) -> Option<Ref<'a, Node>> {
+    type Item = &'a Node;
+    fn next(&mut self) -> Option<&'a Node> {
         if self.id < self.id_end {
             let r = self.allocator.get_id(self.id).expect(
                 "slice should always point to allocated storage");
@@ -1180,6 +1182,15 @@ mod tests {
     use std::mem::size_of;
 
     use super::*;
+
+    #[test]
+    fn t_system_at_least_32bits() {
+        // We use `n as usize` etc. everywhere, where n is u32. Make
+        // sure this is OK.
+        let n: u32 = u32::MAX;
+        let _x: usize = n.try_into()
+            .expect("system has at least 32 bits");
+    }
 
     #[test]
     fn t_siz() {
