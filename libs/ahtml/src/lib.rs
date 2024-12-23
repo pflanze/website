@@ -85,19 +85,27 @@ lazy_static!{
 }
 
 impl AllocatorPool {
-    pub fn new(max_id: u32, verify: bool) -> AllocatorPool {
-        Self::new_with_metadb(max_id,
-                              if verify {
-                                  Some(&*METADB)
-                              } else {
-                                  None
-                              })
+    /// Make a new allocator pool, if `verify` is true, for
+    /// `HtmlAllocator`s with the default HTML5 structure
+    /// checking. Uses a high re-use count; for custom
+    /// `allocator_max_use_count` values, use
+    /// `AllocatorPool::new_with_metadb` instead.
+    pub fn new(max_allocations: u32, verify: bool) -> AllocatorPool {
+        AllocatorPool::new_with_metadb(
+            // allocator_max_use_count: u16, 
+            60000,
+            max_allocations,
+            if verify {
+                Some(&*METADB)
+            } else {
+                None
+            })
     }
 }
 
 impl HtmlAllocator {
-    pub fn new(max_id: u32) -> Self {
-        Self::new_with_metadb(max_id, Some(&*METADB))
+    pub fn new(max_allocations: u32) -> Self {
+        Self::new_with_metadb(max_allocations, Some(&*METADB))
     }
 }
 

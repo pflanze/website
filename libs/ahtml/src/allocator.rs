@@ -7,7 +7,7 @@ use std::{sync::{Mutex, atomic::AtomicBool, Arc},
 use anyhow::{bail, Result, anyhow};
 use ahtml_html::meta::{MetaDb, ElementMeta};
 use backtrace::Backtrace;
-use chj_util::{u24::{U24, U24MAX}, partialbacktrace::PartialBacktrace, warn};
+use chj_util::{partialbacktrace::PartialBacktrace, warn};
 use kstring::KString;
 use lazy_static::lazy_static;
 
@@ -52,17 +52,24 @@ impl<T> AllocatorType for AId<T> {
 
 
 pub struct AllocatorPool {
-    max_id: u32, // See Allocator
+    allocator_max_use_count: u16,
+    max_allocations: u32, // See Allocator
     metadb: Option<&'static MetaDb>, // See Allocator
     allocators: Mutex<Vec<HtmlAllocator>>,
 }
 
 impl AllocatorPool {
+    /// `allocator_max_use_count` is the number of times an
+    /// HtmlAllocator should be re-used. For the other arguments, see
+    /// `HtmlAllocator::new_with_metadb`.
     pub fn new_with_metadb(
-        max_id: u32, metadb: Option<&'static MetaDb>
+        allocator_max_use_count: u16, 
+        max_allocations: u32,
+        metadb: Option<&'static MetaDb>
     ) -> AllocatorPool {
         AllocatorPool {
-            max_id,
+            allocator_max_use_count,
+            max_allocations,
             metadb,
             allocators: Mutex::new(Vec::new())
         }
@@ -88,7 +95,7 @@ impl<'p> AllocatorGuard<'p> {
         if self._allocator.is_none() {
             // eprintln!("allocating a new Allocator");
             self._allocator = Some(HtmlAllocator::new_with_metadb(
-                self.pool.max_id,
+                self.pool.max_allocations,
                 self.pool.metadb.clone(),
             ));
         }
@@ -99,7 +106,7 @@ impl<'p> AllocatorGuard<'p> {
 impl<'p> Drop for AllocatorGuard<'p> {
     fn drop(&mut self) {
         let mut a = self._allocator.take().unwrap();
-        if a.regionid.generation < 20 {
+        if a.regionid.generation < self.pool.allocator_max_use_count {
             a.clear();
             // Insert it back into the pool:
             let mut l = self.pool.allocators.lock().unwrap();
@@ -127,19 +134,14 @@ pub struct HtmlAllocator {
 }
 
 lazy_static!{
-    static ref NEXT_ALLOCATOR_ID: Mutex<u32> = Mutex::new(0);
+    static ref NEXT_ALLOCATOR_ID: Mutex<u16> = Mutex::new(0);
 }
-fn next_allocator_id() -> U24 {
+fn next_allocator_id() -> u16 {
     // replace with atomic inc?
     let mut guard = NEXT_ALLOCATOR_ID.lock().unwrap();
     let id = *guard;
-    *guard =
-        if id < U24MAX {
-            id + 1
-        } else {
-            0
-        };
-    U24::new(id)
+    *guard = id.wrapping_add(1);
+    id
 }
 
 pub trait ToASlice<T> {
@@ -149,6 +151,12 @@ pub trait ToASlice<T> {
 pub static AHTML_TRACE: AtomicBool = AtomicBool::new(false);
 
 impl HtmlAllocator {
+    /// `max_allocations`: how many node (text, elements, empty nodes)
+    /// and attribute allocations in total are allowed before out of
+    /// memory errors are being returned for allocations (i.e. when
+    /// creating new elements, attributes, or pushing to an
+    /// `AVec`). `metadb`: if given, HTML structure is verified during
+    /// element allocation.
     pub fn new_with_metadb(max_allocations: u32, metadb: Option<&'static MetaDb>) -> Self {
         let max_allocations = max_allocations as usize;
         let half_max_alloc = max_allocations / 2;
@@ -570,8 +578,8 @@ impl HtmlAllocator {
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub struct RegionId {
-    allocator_id: U24, // constant
-    generation: u8, // mutated
+    allocator_id: u16, // constant
+    generation: u16, // mutated
 }
 
 #[derive(Debug)]
