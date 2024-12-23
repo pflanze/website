@@ -109,10 +109,10 @@ impl<'p> AllocatorGuard<'p> {
 impl<'p> Drop for AllocatorGuard<'p> {
     fn drop(&mut self) {
         let mut a = self._allocator.take().unwrap();
-        let mut l = self.pool.allocators.lock().unwrap();
         if a.regionid.generation < 20 {
             a.clear();
             // Insert it back into the pool:
+            let mut l = self.pool.allocators.lock().unwrap();
             l.push(a);
         }
     }
