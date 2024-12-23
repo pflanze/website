@@ -13,13 +13,13 @@ use crate::{AId, Node, HtmlAllocator, ToASlice, att, NBSP};
 pub struct SoftPre {
     /// Whether to replace tabs with the given number of non-breaking
     /// spaces.
-    tabs_to_nbsp: Option<u8>,
+    pub tabs_to_nbsp: Option<u8>,
 
     /// Whether to turn http:// and https:// URLs into links.
-    autolink: bool,
+    pub autolink: bool,
 
     /// The text is split on this string into lines
-    line_separator: &'static str
+    pub line_separator: &'static str
 }
 
 impl Default for SoftPre {
