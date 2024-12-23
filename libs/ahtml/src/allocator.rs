@@ -198,14 +198,6 @@ impl HtmlAllocator {
         }
     }
 
-    // fn set<T: AllocatorType>(&self, id_: AId<&'a T>, val: T) {
-    //     match T::allockind() {
-    //         AllocKind::Att => self.atts.borrow_mut()[id_.0 as usize] = Some(val),
-    //         AllocKind::Node => (),
-    //         AllocKind::Id => (),
-    //     }
-    // }
-
     fn id_to_index<T>(&self, id: AId<T>) -> usize {
         self.id_to_bare(id) as usize
     }
