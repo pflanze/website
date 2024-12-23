@@ -179,6 +179,9 @@ impl HtmlAllocator {
         }
     }
 
+    // It is essential for safety that this method takes exclusive
+    // access to self, to prevent references from `get_node` or other
+    // methods from existing past the point of clearing!
     pub fn clear(&mut self) {
         self.atts.borrow_mut().clear();
         self.nodes.borrow_mut().clear();
