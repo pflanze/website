@@ -85,16 +85,6 @@ pub struct AllocatorGuard<'p> {
 
 impl<'p> AllocatorGuard<'p> {
     pub fn allocator(&mut self) -> &HtmlAllocator {
-        // Safe because the lifetime 'a is passed on to AId, which are
-        // valid for the storage. And when drop() is called on
-        // AllocatorGuard, none of them exist anymore outside (also
-        // drop calls .clear() so none survive inside either).
-
-        // I.e. it is safe to use 'a for further AId allocations. Thus
-        // it's correct to use 'a as the lifetime parameter to the
-        // existing Allocator, as made visible here to the user (with
-        // lifetime 'a, thus matches).
-
         if self._allocator.is_none() {
             // eprintln!("allocating a new Allocator");
             self._allocator = Some(HtmlAllocator::new_with_metadb(
