@@ -377,7 +377,12 @@ impl HtmlAllocator {
             }
             attr = vec.to_aslice(self)?;
         }
-        
+
+        // (Note: now can get .len() even though that can update even
+        // though we don't have unique access to nodes here. Only
+        // through sequencing (this is not Sync) we know that it isn't
+        // other than through the `push_within_capacity_` call, which
+        // was in the same borrow scope before, "too".)
         let id_ = self.nodes.len();
         self.nodes.push_within_capacity_(Some(Node::Element(Element {
             meta,
