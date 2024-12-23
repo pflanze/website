@@ -179,7 +179,6 @@ impl HtmlAllocator {
         }
     }
 
-    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.atts.borrow_mut().clear();
         self.nodes.borrow_mut().clear();
