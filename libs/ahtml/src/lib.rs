@@ -341,7 +341,6 @@ impl HtmlAllocator {
              always resolve");
         match &*noderef {
             Node::Element(_) => {
-                drop(noderef); // free up borrow!
                 let mut v = String::new();
                 self.print_plain(id, &mut v)?;
                 self.string(v)
