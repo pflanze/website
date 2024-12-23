@@ -161,7 +161,7 @@ impl ToASlice<Node> for AId<Node> {
 // impl<'a, const N: usize> ToASlice<(KString, KString)> for [(KString, KString); N] {
 //     fn to_aslice(
 //         self,
-//         allocator: &Allocator
+//         allocator: &HtmlAllocator
 //     ) -> Result<ASlice<(KString, KString)>>
 //     {
 //         // Instantiated for every length, need to keep this short! --

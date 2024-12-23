@@ -55,7 +55,7 @@ pub fn pair<'a>(html: &'a HtmlAllocator) -> impl Fn(AId<Node>, AId<Node>) -> Res
     }
 }
 
-// pub fn single<'a>(html: &'a Allocator) -> impl Fn(AId<Node>) -> Result<AId<Node>> + 'a
+// pub fn single<'a>(html: &'a HtmlAllocator) -> impl Fn(AId<Node>) -> Result<AId<Node>> + 'a
 // {
 //     move |a| {
 //         html.div([att("class", "single")],

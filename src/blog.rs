@@ -466,7 +466,7 @@ impl BlogCache {
         }
     }
     
-    /// Needs an Allocator but only temporarily, BlogCache does not contain
+    /// Needs an HtmlAllocator but only temporarily, BlogCache does not contain
     /// AId:s but only preserialized HTML.
     fn from_dir(
         basepath: &Path,

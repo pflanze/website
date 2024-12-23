@@ -11,6 +11,6 @@
 ## Potential ahtml cleanup
 
 - Attributes: currently accepting slices/arrays of either all
-  Allocator based values, or of all (KString, KString) values, right?
+  HtmlAllocator based values, or of all (KString, KString) values, right?
   Move to allow mixed *there*? (+ Similar for bodies?)
 

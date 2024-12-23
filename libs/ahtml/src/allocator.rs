@@ -53,8 +53,8 @@ impl<T> AllocatorType for AId<T> {
 
 pub struct AllocatorPool {
     allocator_max_use_count: u16,
-    max_allocations: u32, // See Allocator
-    metadb: Option<&'static MetaDb>, // See Allocator
+    max_allocations: u32, // See HtmlAllocator
+    metadb: Option<&'static MetaDb>, // See HtmlAllocator
     allocators: Mutex<Vec<HtmlAllocator>>,
 }
 
@@ -93,7 +93,7 @@ pub struct AllocatorGuard<'p> {
 impl<'p> AllocatorGuard<'p> {
     pub fn allocator(&mut self) -> &HtmlAllocator {
         if self._allocator.is_none() {
-            // eprintln!("allocating a new Allocator");
+            // eprintln!("allocating a new HtmlAllocator");
             self._allocator = Some(HtmlAllocator::new_with_metadb(
                 self.pool.max_allocations,
                 self.pool.metadb.clone(),
@@ -271,7 +271,7 @@ impl HtmlAllocator {
         &self,
         meta: &'static ElementMeta,
         // The slices must be for storage in this
-        // Allocator! XX could this be improved?
+        // HtmlAllocator! XX could this be improved?
         attr: ASlice<(KString, KString)>,
         body: ASlice<Node>
     ) -> Result<AId<Node>> {
@@ -615,7 +615,7 @@ pub struct AVec<'a, T: AllocatorType> {
 }
 
 impl<'a, T: AllocatorType> AVec<'a, T> {
-    // But actually keep private, only instantiate via Allocator::new_vec ?
+    // But actually keep private, only instantiate via HtmlAllocator::new_vec ?
     pub fn new(allocator: &'a HtmlAllocator) -> AVec<'a, T> {
         AVec {
             t: PhantomData,

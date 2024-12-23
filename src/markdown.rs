@@ -419,7 +419,7 @@ impl ProcessedMarkdown {
             if do_drop_h1 {
                 warn!("do_drop_h1");
                 Box::new(|id: AId<Node>| -> Result<Option<AId<Node>>> {
-                    let node = html.get_node(id).expect("correct Allocator");
+                    let node = html.get_node(id).expect("correct HtmlAllocator");
                     if let Some(elt) = node.as_element() {
                         if elt.meta() == *H1_META {
                             Ok(None)
@@ -439,7 +439,7 @@ impl ProcessedMarkdown {
                         return Ok(self.html)
                     }
                     Box::new(move |id: AId<Node>| -> Result<Option<AId<Node>>> {
-                        let node = html.get_node(id).expect("correct Allocator");
+                        let node = html.get_node(id).expect("correct HtmlAllocator");
                         if let Some(elt) = node.as_element() {
                             if let Some(lvl) = level_from_elementmeta(elt.meta()) {
                                 let lvl2 = lvl + diff;
@@ -469,7 +469,7 @@ impl ProcessedMarkdown {
         let node2 = {
             let elt = {
                 let node = html.get_node(self.html).expect(
-                    "ProcessedMarkdown to be used with the same Allocator it was created with");
+                    "ProcessedMarkdown to be used with the same HtmlAllocator it was created with");
                 // Bummer, Element is quite large (5 words?), but we have
                 // to free up the borrow from get_node because
                 // try_filter_map_body needs a writable one.
