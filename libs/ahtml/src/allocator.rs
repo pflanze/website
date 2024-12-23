@@ -1,5 +1,5 @@
 use std::{sync::{Mutex, atomic::AtomicBool, Arc},
-          cell::{RefCell, Ref},
+          cell::RefCell,
           collections::HashSet,
           marker::PhantomData,
           cmp::max};
@@ -11,7 +11,7 @@ use chj_util::{u24::{U24, U24MAX}, partialbacktrace::PartialBacktrace, warn};
 use kstring::KString;
 use lazy_static::lazy_static;
 
-use crate::{myfrom::MyFrom, arc_util::IntoArc, more_vec::MoreVec};
+use crate::{myfrom::MyFrom, arc_util::IntoArc, more_vec::MoreVec, stillvec::StillVec};
 
 // once again
 fn all_whitespace(s: &str) -> bool {
@@ -118,6 +118,7 @@ impl<'p> Drop for AllocatorGuard<'p> {
     }
 }
 
+
 pub struct HtmlAllocator {
     // For dynamic verification of AId:s, also the generation counter
     // is used to stop reusing the allocator at some point to free up
@@ -126,9 +127,9 @@ pub struct HtmlAllocator {
     // If present, DOM structure validation is done (at runtime):
     metadb: Option<&'static MetaDb>,
     // Storage for attributes:
-    atts: RefCell<Vec<Option<(KString, KString)>>>,
+    atts: StillVec<Option<(KString, KString)>>,
     // Storage for nodes:
-    nodes: RefCell<Vec<Option<Node>>>,
+    nodes: StillVec<Option<Node>>,
     // Storage for references to attributes and nodes:
     ids: RefCell<Vec<u32>>, // for attribute or Node, depending on slot
     // Temporary storage for serialisation:
@@ -168,23 +169,20 @@ impl HtmlAllocator {
             },
             // Assume that attributes are relatively rare, even
             // half_max_alloc seems overly many, well.
-            atts: RefCell::new(Vec::with_capacity(half_max_alloc)),
+            atts: StillVec::with_capacity(half_max_alloc),
             // Even though ids <= nodes + atts, we don't know how the
             // distribution between nodes and atts will be, so have to
             // allocate nodes with (close to) the max, too.
-            nodes: RefCell::new(Vec::with_capacity(max_allocations)),
+            nodes: StillVec::with_capacity(max_allocations),
             ids: RefCell::new(Vec::with_capacity(max_allocations)),
             metadb,
             html_escape_tmp: RefCell::new(Vec::new()),
         }
     }
 
-    // It is essential for safety that this method takes exclusive
-    // access to self, to prevent references from `get_node` or other
-    // methods from existing past the point of clearing!
     pub fn clear(&mut self) {
-        self.atts.borrow_mut().clear();
-        self.nodes.borrow_mut().clear();
+        self.atts.exclusive_clear();
+        self.nodes.exclusive_clear();
         self.ids.borrow_mut().clear();
         self.regionid.generation += 1;
     }
@@ -219,56 +217,34 @@ impl HtmlAllocator {
     }
 
     pub fn get_node<'a>(&'a self, id: AId<Node>) -> Option<&'a Node> {
-        let b: Ref<Vec<Option<Node>>> = self.nodes.borrow();
-        // let m: Ref<Option<&Option<Node>>> = Ref::map(b, |r| &r.get(0));
-        // // ^ odd, & of &r.get.. is not in m any more gll  Ref::map does that deref.
-        // let n: Ref<Option<&Option<Node>>> = Ref::map(b, |r| {
-        //     &r.get(id_.0 as usize) // ?.as_ref()
-        // });
-        let n: Option<Ref<Node>> = Ref::filter_map(b, |r| {
-            if let Some(v) = r.get(self.id_to_index(id)) {
-                if let Some(n) = v {
-                    Some(n)
-                } else {
-                    // "uninitialized" memory
-                    None
-                }
+        if let Some(v) = self.nodes.get(self.id_to_index(id)) {
+            if let Some(n) = v {
+                Some(n)
             } else {
-                // id behind end of memory
+                // "uninitialized" memory
                 None
             }
-        }).ok();
-        let r = n?;
-        let pointer: *const Node = &*r;
-        Some(unsafe {
-            // Safe because we never give mutable access to `Node`s,
-            // and any stored `Node` remains in the region for the
-            // duration of it's lifetime, and, we pre-allocate all
-            // storage via Vec::with_capacity, so the storage will
-            // never be moved. XXX document that upwards, too.
-            &*pointer
-        })
+        } else {
+            // id behind end of memory
+            None
+        }
     }
 
-    // COPY-PASTE of above with types stripped
+    // COPY-PASTE of above
     pub fn get_att<'a>(&'a self, id: AId<(KString, KString)>)
-                   -> Option<Ref<'a, (KString, KString)>>
+                   -> Option<&'a (KString, KString)>
     {
-        let b = self.atts.borrow();
-        let n = Ref::filter_map(b, |r| {
-            if let Some(v) = r.get(self.id_to_index(id)) {
-                if let Some(n) = v {
-                    Some(n)
-                } else {
-                    // "uninitialized" memory
-                    None
-                }
+        if let Some(v) = self.atts.get(self.id_to_index(id)) {
+            if let Some(n) = v {
+                Some(n)
             } else {
-                // id behind end of memory
+                // "uninitialized" memory
                 None
             }
-        }).ok();
-        n
+        } else {
+            // id behind end of memory
+            None
+        }
     }
 
     // For within ids. To get the id, to be of type T.
@@ -404,9 +380,8 @@ impl HtmlAllocator {
             attr = vec.to_aslice(self)?;
         }
         
-        let mut nodes= self.nodes.borrow_mut();
-        let id_ = nodes.len();
-        nodes.push_within_capacity_(Some(Node::Element(Element {
+        let id_ = self.nodes.len();
+        self.nodes.push_within_capacity_(Some(Node::Element(Element {
             meta,
             attr,
             body
@@ -424,17 +399,15 @@ impl HtmlAllocator {
         s: KString
     ) -> Result<AId<Node>> {
         // much COPY-PASTE always
-        let mut nodes= self.nodes.borrow_mut();
-        let id_ = nodes.len();
-        nodes.push_within_capacity_(Some(Node::String(s)))
+        let id_ = self.nodes.len();
+        self.nodes.push_within_capacity_(Some(Node::String(s)))
             .map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
     pub fn empty_node(&self) -> Result<AId<Node>> {
         // much COPY-PASTE always
-        let mut nodes= self.nodes.borrow_mut();
-        let id_ = nodes.len();
-        nodes.push_within_capacity_(Some(Node::None))
+        let id_ = self.nodes.len();
+        self.nodes.push_within_capacity_(Some(Node::None))
             .map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
@@ -444,9 +417,8 @@ impl HtmlAllocator {
         att: (KString, KString)
     ) -> Result<AId<(KString, KString)>>
     {
-        let mut atts = self.atts.borrow_mut();
-        let id_ = atts.len();
-        atts.push_within_capacity_(Some(att))
+        let id_ = self.atts.len();
+        self.atts.push_within_capacity_(Some(att))
             .map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
@@ -465,10 +437,9 @@ impl HtmlAllocator {
         val: impl IntoArc<SerHtmlFrag>
     ) -> Result<AId<Node>> {
         // ever copy-paste
-        let mut nodes= self.nodes.borrow_mut();
-        let id_ = nodes.len();
+        let id_ = self.nodes.len();
         // /copy-paste
-        nodes.push_within_capacity_(Some(Node::Preserialized(val.into_arc())))
+        self.nodes.push_within_capacity_(Some(Node::Preserialized(val.into_arc())))
             .map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
         // copy-paste
         Ok(AId::new(self.regionid, id_ as u32))
@@ -795,8 +766,8 @@ pub struct ASliceAttIterator<'a, T> {
     id_end: u32,
 }
 impl<'a, T> Iterator for ASliceAttIterator<'a, T> {
-    type Item = Ref<'a, (KString, KString)>;
-    fn next(&mut self) -> Option<Ref<'a, (KString, KString)>> {
+    type Item = &'a (KString, KString);
+    fn next(&mut self) -> Option<&'a (KString, KString)> {
         if self.id < self.id_end {
             let r = self.allocator.get_id(self.id).expect(
                 "slice should always point to allocated storage");

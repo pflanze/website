@@ -6,6 +6,7 @@ pub mod util;
 pub mod allocator;
 pub mod flat;
 pub mod more_vec;
+pub mod stillvec;
 
 use std::{cell::RefMut,
           io::Write};
