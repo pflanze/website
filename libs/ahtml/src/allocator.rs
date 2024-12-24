@@ -182,7 +182,10 @@ impl HtmlAllocator {
         self.atts.exclusive_clear();
         self.nodes.exclusive_clear();
         self.ids.borrow_mut().clear();
-        self.regionid.generation += 1;
+        // Maybe in the future want to let regions be reusable
+        // forever. So, don't `+= 1`!
+        self.regionid.generation =
+            self.regionid.generation.wrapping_add(1);
     }
     
     pub fn regionid(&self) -> RegionId {
