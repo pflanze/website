@@ -8,7 +8,7 @@ use anyhow::{Result, anyhow, bail, Context};
 use chrono::NaiveDate;
 use kstring::KString;
 
-use ahtml::{SerHtmlFrag, HtmlAllocator, AllocatorPool, AVec, Node, att, myfrom::MyFrom};
+use ahtml::{SerHtmlFrag, HtmlAllocator, HtmlAllocatorPool, AVec, Node, att, myfrom::MyFrom};
 use ahtml::{H2_META, P_META};
 use chj_util::{nodt as dt, time, notime};
 
@@ -494,7 +494,7 @@ pub struct Blog {
     basepath: Box<Path>,
     blogcache: MiniArcSwap<BlogCache>,
     style: Arc<dyn StylingInterface>,
-    allocpool: &'static AllocatorPool,
+    allocpool: &'static HtmlAllocatorPool,
     // ^ go Arc instead of 'static? -- XX not even needed, just have
     // updater_thread have it, handlers will get it anyway
     // updater_thread: JoinHandle<()>,
@@ -503,7 +503,7 @@ pub struct Blog {
 impl Blog {
     pub fn open<P: IntoBoxPath>(
         basepath: P,
-        allocpool: &'static AllocatorPool,
+        allocpool: &'static HtmlAllocatorPool,
         style: Arc<dyn StylingInterface>
     ) -> Result<Arc<Blog>>
     {

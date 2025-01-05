@@ -8,7 +8,7 @@ use rouille::Response;
 use rouille::router;
 use rouille::start_server;
 
-use ahtml::{AllocatorPool, HtmlAllocator, Node};
+use ahtml::{HtmlAllocatorPool, HtmlAllocator, Node};
 
 use website::http_response_status_codes::HttpResponseStatusCode;
 use website::webutils::errorpage_from_error;
@@ -104,8 +104,8 @@ fn root(alloc: &HtmlAllocator) -> Result<Response> {
 }
 
 lazy_static!{
-    static ref ALLOCPOOL: AllocatorPool =
-        AllocatorPool::new(1000000, true); // XX config
+    static ref ALLOCPOOL: HtmlAllocatorPool =
+        HtmlAllocatorPool::new(1000000, true); // XX config
 }
 
 

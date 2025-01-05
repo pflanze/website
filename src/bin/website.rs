@@ -7,7 +7,7 @@ use anyhow::{Result, bail};
 
 use ahtml::allocator::AHTML_TRACE;
 use ahtml::flat::Flat;
-use ahtml::{AllocatorPool, HtmlAllocator, Node, att};
+use ahtml::{HtmlAllocatorPool, HtmlAllocator, Node, att};
 
 use website::access_control::db::access_control_transaction;
 use website::access_control::statements_and_methods::DO_WARN_THREAD;
@@ -134,8 +134,8 @@ const NAV: &[(Lang, Nav)] = &[
 // Main
 
 lazy_static!{
-    static ref ALLOCPOOL: AllocatorPool =
-        AllocatorPool::new(1000000, true); // XX config
+    static ref ALLOCPOOL: HtmlAllocatorPool =
+        HtmlAllocatorPool::new(1000000, true); // XX config
 }
 
 fn lang_from_path(path: &PPath<KString>) -> Option<Lang> {

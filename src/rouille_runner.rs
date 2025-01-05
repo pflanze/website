@@ -1,5 +1,5 @@
 //! A higher level astraction on top of Rouille, tieing together
-//! `AContext`, `AResponse`, `AllocatorPool`, `HostsRouter`, `PPath`,
+//! `AContext`, `AResponse`, `HtmlAllocatorPool`, `HostsRouter`, `PPath`,
 //! `apachelog`, and a thread pool to separate worker threads from
 //! HTTP threads.
 
@@ -16,7 +16,7 @@ use rouille::session::session;
 use rouille::{Server, Request, Response};
 use scoped_thread_pool::Pool;
 
-use ahtml::AllocatorPool;
+use ahtml::HtmlAllocatorPool;
 use chj_util::{warn, time_guard};
 
 use crate::acontext::AContext;
@@ -36,7 +36,7 @@ use crate::time_util;
 pub fn server_handler<'t, L: Language + Default>(
     listen_addr: String,
     hostsrouter: Arc<HostsRouter<L>>,
-    allocatorpool: &'static AllocatorPool,
+    allocatorpool: &'static HtmlAllocatorPool,
     threadpool: Arc<Pool>,
     sessionid_hasher: Hasher,
     lang_from_path: Arc<dyn Fn(&PPath<KString>) -> Option<L> + Send + Sync>,
@@ -129,14 +129,14 @@ pub struct Tlskeys {
 
 pub struct RouilleRunner<L: Language> {
     workerthreadpool: Arc<Pool>,
-    allocpool: &'static AllocatorPool,
+    allocpool: &'static HtmlAllocatorPool,
     sessionid_hasher: Hasher,
     lang_from_path: Arc<dyn Fn(&PPath<KString>) -> Option<L> + Send + Sync>,
 }
 
 impl<L: Language + 'static> RouilleRunner<L> {
     pub fn new(
-        allocpool: &'static AllocatorPool,
+        allocpool: &'static HtmlAllocatorPool,
         sessionid_hasher: Hasher,
         lang_from_path: Arc<dyn Fn(&PPath<KString>) -> Option<L> + Send + Sync>,
     ) -> Self
