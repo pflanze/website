@@ -10,7 +10,7 @@ pub mod stillvec;
 
 use std::{cell::RefMut,
           io::Write};
-pub use allocator::{HtmlAllocator, AllocatorPool, AId, Node, ASlice, Element,
+pub use allocator::{HtmlAllocator, HtmlAllocatorPool, AId, Node, ASlice, Element,
                     AllocatorType, SerHtmlFrag, ToASlice, AVec};
 use kstring::KString;
 use anyhow::{Result, bail};
@@ -84,14 +84,14 @@ lazy_static!{
     pub static ref METADB: MetaDb = read_meta_db().unwrap();
 }
 
-impl AllocatorPool {
+impl HtmlAllocatorPool {
     /// Make a new allocator pool, if `verify` is true, for
     /// `HtmlAllocator`s with the default HTML5 structure
     /// checking. Uses a high re-use count; for custom
     /// `allocator_max_use_count` values, use
-    /// `AllocatorPool::new_with_metadb` instead.
-    pub fn new(max_allocations: u32, verify: bool) -> AllocatorPool {
-        AllocatorPool::new_with_metadb(
+    /// `HtmlAllocatorPool::new_with_metadb` instead.
+    pub fn new(max_allocations: u32, verify: bool) -> HtmlAllocatorPool {
+        HtmlAllocatorPool::new_with_metadb(
             // allocator_max_use_count: u16, 
             60000,
             max_allocations,

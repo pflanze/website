@@ -51,14 +51,14 @@ impl<T> AllocatorType for AId<T> {
 // AllocKind ones.
 
 
-pub struct AllocatorPool {
+pub struct HtmlAllocatorPool {
     allocator_max_use_count: u16,
     max_allocations: u32, // See HtmlAllocator
     metadb: Option<&'static MetaDb>, // See HtmlAllocator
     allocators: Mutex<Vec<HtmlAllocator>>,
 }
 
-impl AllocatorPool {
+impl HtmlAllocatorPool {
     /// `allocator_max_use_count` is the number of times an
     /// HtmlAllocator should be re-used. For the other arguments, see
     /// `HtmlAllocator::new_with_metadb`.
@@ -66,8 +66,8 @@ impl AllocatorPool {
         allocator_max_use_count: u16, 
         max_allocations: u32,
         metadb: Option<&'static MetaDb>
-    ) -> AllocatorPool {
-        AllocatorPool {
+    ) -> HtmlAllocatorPool {
+        HtmlAllocatorPool {
             allocator_max_use_count,
             max_allocations,
             metadb,
@@ -86,7 +86,7 @@ impl AllocatorPool {
 }
 
 pub struct AllocatorGuard<'p> {
-    pool: &'p AllocatorPool,
+    pool: &'p HtmlAllocatorPool,
     _allocator: Option<HtmlAllocator>
 }
 
