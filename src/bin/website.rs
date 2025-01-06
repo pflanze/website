@@ -135,7 +135,9 @@ const NAV: &[(Lang, Nav)] = &[
 
 lazy_static!{
     static ref ALLOCPOOL: HtmlAllocatorPool =
-        HtmlAllocatorPool::new(1000000, true); // XX config
+        // XX config
+        HtmlAllocatorPool::new(1000000, true,
+                               Arc::new(format!("global website pool {}:{}", file!(), line!()))); 
 }
 
 fn lang_from_path(path: &PPath<KString>) -> Option<Lang> {

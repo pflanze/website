@@ -2,7 +2,7 @@ use std::{sync::{Mutex, atomic::AtomicBool, Arc},
           cell::RefCell,
           collections::HashSet,
           marker::PhantomData,
-          cmp::max};
+          cmp::max, fmt::Display, panic::RefUnwindSafe};
 
 use anyhow::{bail, Result, anyhow};
 use ahtml_html::meta::{MetaDb, ElementMeta};
@@ -13,11 +13,12 @@ use lazy_static::lazy_static;
 
 use crate::{myfrom::MyFrom, arc_util::IntoArc, more_vec::MoreVec, stillvec::StillVec};
 
+pub type Context = Arc<dyn Display + Sync + Send + RefUnwindSafe>;
+
 // once again
 fn all_whitespace(s: &str) -> bool {
     s.chars().all(|c| c.is_ascii_whitespace())
 }
-
 
 #[derive(Debug)]
 pub enum AllocKind {
@@ -55,6 +56,9 @@ pub struct HtmlAllocatorPool {
     allocator_max_use_count: u16,
     max_allocations: u32, // See HtmlAllocator
     metadb: Option<&'static MetaDb>, // See HtmlAllocator
+    /// Information about the pool, e.g. where it was created or what
+    /// document it is used for.
+    context: Context,
     allocators: Mutex<Vec<HtmlAllocator>>,
 }
 
@@ -65,12 +69,14 @@ impl HtmlAllocatorPool {
     pub fn new_with_metadb(
         allocator_max_use_count: u16, 
         max_allocations: u32,
-        metadb: Option<&'static MetaDb>
-    ) -> HtmlAllocatorPool {
+        metadb: Option<&'static MetaDb>,
+        context: Context
+    ) -> Self {
         HtmlAllocatorPool {
             allocator_max_use_count,
             max_allocations,
             metadb,
+            context,
             allocators: Mutex::new(Vec::new())
         }
     }
@@ -97,6 +103,7 @@ impl<'p> AllocatorGuard<'p> {
             self._allocator = Some(HtmlAllocator::new_with_metadb(
                 self.pool.max_allocations,
                 self.pool.metadb.clone(),
+                self.pool.context.clone()
             ));
         }
         self._allocator.as_mut().unwrap()
@@ -117,12 +124,15 @@ impl<'p> Drop for AllocatorGuard<'p> {
 
 
 pub struct HtmlAllocator {
+    context: Context,
     // For dynamic verification of AId:s, also the generation counter
     // is used to stop reusing the allocator at some point to free up
     // unused memory.
     regionid: RegionId,
     // If present, DOM structure validation is done (at runtime):
     metadb: Option<&'static MetaDb>,
+    // The top capacity value, as passed by the user
+    max_allocations: usize,
     // Storage for attributes:
     atts: StillVec<Option<(KString, KString)>>,
     // Storage for nodes:
@@ -157,10 +167,12 @@ impl HtmlAllocator {
     /// creating new elements, attributes, or pushing to an
     /// `AVec`). `metadb`: if given, HTML structure is verified during
     /// element allocation.
-    pub fn new_with_metadb(max_allocations: u32, metadb: Option<&'static MetaDb>) -> Self {
+    pub fn new_with_metadb(max_allocations: u32, metadb: Option<&'static MetaDb>,
+                           context: Context) -> Self {
         let max_allocations = max_allocations as usize;
         let half_max_alloc = max_allocations / 2;
         HtmlAllocator {
+            context,
             regionid: RegionId {
                 allocator_id: next_allocator_id(),
                 generation: 0,
@@ -174,6 +186,7 @@ impl HtmlAllocator {
             nodes: StillVec::with_capacity(max_allocations),
             ids: RefCell::new(Vec::with_capacity(max_allocations)),
             metadb,
+            max_allocations,
             html_escape_tmp: RefCell::new(Vec::new()),
         }
     }
@@ -187,7 +200,16 @@ impl HtmlAllocator {
         self.regionid.generation =
             self.regionid.generation.wrapping_add(1);
     }
-    
+
+    fn out_of_memory_error(&self, which_vec: &str, capacity: usize) -> anyhow::Error {
+        anyhow!(
+            "HtmlAllocator: reached the capacity {capacity} of the {which_vec} region \
+             due to the configured max_allocations limit of {} -- {}",
+            self.max_allocations,
+            self.context
+        )
+    }
+
     pub fn regionid(&self) -> RegionId {
         self.regionid
     }
@@ -391,7 +413,7 @@ impl HtmlAllocator {
             meta,
             attr,
             body
-        }))).map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
+        }))).map_err(|_e| self.out_of_memory_error("nodes" ,self.nodes.capacity()))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
 
@@ -407,14 +429,14 @@ impl HtmlAllocator {
         // much COPY-PASTE always
         let id_ = self.nodes.len();
         self.nodes.push_within_capacity_(Some(Node::String(s)))
-            .map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
+            .map_err(|_e| self.out_of_memory_error("nodes", self.nodes.capacity()))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
     pub fn empty_node(&self) -> Result<AId<Node>> {
         // much COPY-PASTE always
         let id_ = self.nodes.len();
         self.nodes.push_within_capacity_(Some(Node::None))
-            .map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
+            .map_err(|_e| self.out_of_memory_error("nodes", self.nodes.capacity()))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
 
@@ -425,7 +447,7 @@ impl HtmlAllocator {
     {
         let id_ = self.atts.len();
         self.atts.push_within_capacity_(Some(att))
-            .map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
+            .map_err(|_e| self.out_of_memory_error("atts", self.atts.capacity()))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
     pub fn attribute<K, V>(
@@ -446,7 +468,7 @@ impl HtmlAllocator {
         let id_ = self.nodes.len();
         // /copy-paste
         self.nodes.push_within_capacity_(Some(Node::Preserialized(val.into_arc())))
-            .map_err(|_| anyhow!("HtmlAllocator: out of memory"))?;
+            .map_err(|_e| self.out_of_memory_error("nodes", self.nodes.capacity()))?;
         // copy-paste
         Ok(AId::new(self.regionid, id_ as u32))
     }
@@ -464,7 +486,7 @@ impl HtmlAllocator {
         let id = v.len();
         let newlen = id + n as usize;
         if newlen > v.capacity() {
-            bail!("HtmlAllocator: out of memory")
+            return Err(self.out_of_memory_error("ids", v.capacity()))
         }
        
         if let Some((start, end)) = copy_range {

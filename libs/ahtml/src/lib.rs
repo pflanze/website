@@ -10,6 +10,7 @@ pub mod stillvec;
 
 use std::{cell::RefMut,
           io::Write};
+use allocator::Context;
 pub use allocator::{HtmlAllocator, HtmlAllocatorPool, AId, Node, ASlice, Element,
                     AllocatorType, SerHtmlFrag, ToASlice, AVec};
 use kstring::KString;
@@ -90,7 +91,7 @@ impl HtmlAllocatorPool {
     /// checking. Uses a high re-use count; for custom
     /// `allocator_max_use_count` values, use
     /// `HtmlAllocatorPool::new_with_metadb` instead.
-    pub fn new(max_allocations: u32, verify: bool) -> HtmlAllocatorPool {
+    pub fn new(max_allocations: u32, verify: bool, context: Context) -> Self {
         HtmlAllocatorPool::new_with_metadb(
             // allocator_max_use_count: u16, 
             60000,
@@ -99,13 +100,14 @@ impl HtmlAllocatorPool {
                 Some(&*METADB)
             } else {
                 None
-            })
+            },
+            context)
     }
 }
 
 impl HtmlAllocator {
-    pub fn new(max_allocations: u32) -> Self {
-        Self::new_with_metadb(max_allocations, Some(&*METADB))
+    pub fn new(max_allocations: u32, context: Context) -> Self {
+        Self::new_with_metadb(max_allocations, Some(&*METADB), context)
     }
 }
 

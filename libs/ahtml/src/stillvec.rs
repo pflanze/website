@@ -23,6 +23,13 @@ impl<T> StillVec<T> {
         unsafe {&*p}.len()
     }
 
+    pub fn capacity(&self) -> usize {
+        let p = self.0.get();
+        // Safe because StillVec since there is no API for mutating
+        // the capacity.
+        unsafe {&*p}.capacity()
+    }
+
     pub fn push_within_capacity_(&self, value: T) -> Result<(), T> {
         let p = self.0.get();
         // Safe because pushing within capacity will not cause

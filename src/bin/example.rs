@@ -1,4 +1,5 @@
 use std::fmt::Write;
+use std::sync::Arc;
 use std::sync::Mutex;
 
 use anyhow::{Result, Error};
@@ -105,7 +106,9 @@ fn root(alloc: &HtmlAllocator) -> Result<Response> {
 
 lazy_static!{
     static ref ALLOCPOOL: HtmlAllocatorPool =
-        HtmlAllocatorPool::new(1000000, true); // XX config
+        // XX config
+        HtmlAllocatorPool::new(1000000, true,
+                               Arc::new(format!("from {}:{}", file!(), line!())));
 }
 
 
