@@ -151,7 +151,7 @@ mod tests {
     }
 
     fn t(s: &str) -> String {
-        let html = HtmlAllocator::new(1000);
+        let html = HtmlAllocator::new(1000, std::sync::Arc::new(""));
         let slice = autolink(&html, s).unwrap();
         slice.to_html_fragment_string(&html).unwrap()
     }

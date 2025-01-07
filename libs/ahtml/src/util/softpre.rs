@@ -84,7 +84,7 @@ mod tests {
     #[test]
     fn t_softpre() -> Result<()> {
         let softpre = SoftPre::default();
-        let html = HtmlAllocator::new(1000);
+        let html = HtmlAllocator::new(1000, std::sync::Arc::new(""));
         let t = |s| -> String {
             softpre.format(s, &html).unwrap().to_html_fragment_string(&html).unwrap()
         };
