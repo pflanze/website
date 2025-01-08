@@ -126,8 +126,8 @@ fn main() -> Result<()> {
             router!(
                 request,
                 (GET) (/) => {
-                    let mut guard = ALLOCPOOL.get();
-                    root(guard.allocator()).or_else(
+                    let allocator = ALLOCPOOL.get();
+                    root(&*allocator).or_else(
                         |e| Ok::<Response, Error>(errorpage_from_error(e)))
                         .expect("always OK")
                 },

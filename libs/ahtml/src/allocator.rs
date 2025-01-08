@@ -2,7 +2,10 @@ use std::{sync::{Mutex, atomic::AtomicBool, Arc},
           cell::RefCell,
           collections::HashSet,
           marker::PhantomData,
-          cmp::max, fmt::Display, panic::RefUnwindSafe};
+          cmp::max,
+          fmt::Display,
+          panic::RefUnwindSafe,
+          ops::Deref, mem::ManuallyDrop};
 
 use anyhow::{bail, Result, anyhow};
 use ahtml_html::meta::{MetaDb, ElementMeta};
@@ -80,39 +83,40 @@ impl HtmlAllocatorPool {
             allocators: Mutex::new(Vec::new())
         }
     }
-    pub fn get<'p>(&'p self) -> AllocatorGuard<'p>
+    pub fn get<'p>(&'p self) -> HtmlAllocatorGuard<'p>
     {
         let mut l = self.allocators.lock().unwrap();
-        let a = l.pop();
-        AllocatorGuard {
+        let a = l.pop().unwrap_or_else(|| {
+            HtmlAllocator::new_with_metadb(
+                self.max_allocations,
+                self.metadb.clone(),
+                self.context.clone()
+            )
+        });
+        HtmlAllocatorGuard {
             pool: self,
-            _allocator: a
+            html_allocator: ManuallyDrop::new(a)
         }
     }
 }
 
-pub struct AllocatorGuard<'p> {
+pub struct HtmlAllocatorGuard<'p> {
     pool: &'p HtmlAllocatorPool,
-    _allocator: Option<HtmlAllocator>
+    html_allocator: ManuallyDrop<HtmlAllocator>
 }
 
-impl<'p> AllocatorGuard<'p> {
-    pub fn allocator(&mut self) -> &HtmlAllocator {
-        if self._allocator.is_none() {
-            // eprintln!("allocating a new HtmlAllocator");
-            self._allocator = Some(HtmlAllocator::new_with_metadb(
-                self.pool.max_allocations,
-                self.pool.metadb.clone(),
-                self.pool.context.clone()
-            ));
-        }
-        self._allocator.as_mut().unwrap()
+impl<'p> Deref for HtmlAllocatorGuard<'p> {
+    type Target = HtmlAllocator;
+
+    #[inline(always)]
+    fn deref(&self) -> &Self::Target {
+        &self.html_allocator
     }
 }
 
-impl<'p> Drop for AllocatorGuard<'p> {
+impl<'p> Drop for HtmlAllocatorGuard<'p> {
     fn drop(&mut self) {
-        let mut a = self._allocator.take().unwrap();
+        let mut a = unsafe { ManuallyDrop::take(&mut self.html_allocator) };
         if a.regionid.generation < self.pool.allocator_max_use_count {
             a.clear();
             // Insert it back into the pool:

@@ -60,20 +60,19 @@ pub fn server_handler<'t, L: Language + Default>(
                             };
                             match method.to_grouped() {
                                 HttpRequestMethodGrouped::Simple(simplemethod) => {
-                                    let mut guard = allocatorpool.get();
-                                    let allocator = guard.allocator();
+                                    let allocator = allocatorpool.get();
                                     if let Some(host) = context.host() {
                                         let lchost = host.to_lowercase();
                                         if let Some(hostrouter) = hostsrouter.routers.get(
                                             &KString::from_string(lchost))
                                         {
                                             return hostrouter.handle_request(
-                                                context, simplemethod, allocator)
+                                                context, simplemethod, &*allocator)
                                         }
                                     }
                                     if let Some(fallback) = &hostsrouter.fallback {
                                         return fallback.handle_request(
-                                            context, simplemethod, allocator)
+                                            context, simplemethod, &*allocator)
                                     }
                                 }
                                 HttpRequestMethodGrouped::Document(documentmethod) => {

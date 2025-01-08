@@ -509,10 +509,10 @@ impl Blog {
     {
         let basepath = basepath.into_box_path();
         let blogcache = {
-            let mut allocguard = allocpool.get();
+            let allocguard = allocpool.get();
             Arc::new(BlogCache::from_dir(&basepath,
                                          None,
-                                         allocguard.allocator(),
+                                         &*allocguard,
                                          &*style)?)
         };
         let blog = Arc::new(Blog {
@@ -529,11 +529,11 @@ impl Blog {
                         thread::sleep(Duration::from_millis(400));
                         match catch_unwind(|| -> Result<()> {
                             let oldblogcache = blog.blogcache.get();
-                            let mut allocguard = blog.allocpool.get();
+                            let allocguard = blog.allocpool.get();
                             let newblogcache = BlogCache::from_dir(
                                 &blog.basepath,
                                 Some(oldblogcache.router.trie()),
-                                allocguard.allocator(),
+                                &*allocguard,
                                 &*blog.style)?;
                             // ah, and need a way to know if new? actually
                             // doesn't matter, just publish it:
