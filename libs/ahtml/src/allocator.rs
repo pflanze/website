@@ -126,6 +126,8 @@ impl<'p> Drop for HtmlAllocatorGuard<'p> {
     }
 }
 
+unsafe impl<'p> Send for HtmlAllocatorGuard<'p> {}
+
 
 pub struct HtmlAllocator {
     context: Context,
