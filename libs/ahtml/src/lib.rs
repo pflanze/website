@@ -165,6 +165,12 @@ impl ToASlice<Node> for &[AId<Node>] {
     }
 }
 
+impl ToASlice<Node> for Vec<AId<Node>> {
+    fn to_aslice(self, allocator: &HtmlAllocator) -> Result<ASlice<Node>> {
+        self.as_slice().to_aslice(allocator)
+    }
+}
+
 // Take ownership of an array (best syntax)
 impl<const N: usize> ToASlice<Node> for [AId<Node>; N] {
     fn to_aslice(self, allocator: &HtmlAllocator) -> Result<ASlice<Node>> {
