@@ -155,6 +155,23 @@ impl ToASlice<Node> for AId<Node> {
     }
 }
 
+// Take ownership of an array (best syntax)
+impl<const N: usize> ToASlice<Node> for [AId<Node>; N] {
+    fn to_aslice(self, allocator: &HtmlAllocator) -> Result<ASlice<Node>> {
+        // Instantiated for every length, need to keep this short! --
+        // except if we want to avoid the swap, there is no length
+        // independent way to do it, hence have to be fat,
+        // bummer. FUTURE: optimize via unsafe memcpy (if the type
+        // isn't pinned etc.).
+        let mut vec = allocator.new_vec();
+        for val in self {
+            vec.push(val)?;
+        }
+        Ok(vec.as_slice())
+    }
+}
+
+
 // Take ownership of an array (best syntax, and allows to avoid the
 // need for swap), version for attributes:
 
@@ -193,21 +210,6 @@ impl<'a, const N: usize> ToASlice<(KString, KString)> for [Option<(KString, KStr
                 let id_ = allocator.new_attribute(val)?;
                 vec.push(id_)?;
             }
-        }
-        Ok(vec.as_slice())
-    }
-}
-
-impl<const N: usize> ToASlice<Node> for [AId<Node>; N] {
-    fn to_aslice(self, allocator: &HtmlAllocator) -> Result<ASlice<Node>> {
-        // Instantiated for every length, need to keep this short! --
-        // except if we want to avoid the swap, there is no length
-        // independent way to do it, hence have to be fat,
-        // bummer. FUTURE: optimize via unsafe memcpy (if the type
-        // isn't pinned etc.).
-        let mut vec = allocator.new_vec();
-        for val in self {
-            vec.push(val)?;
         }
         Ok(vec.as_slice())
     }
