@@ -322,7 +322,7 @@ impl HtmlAllocator {
         let s = self.to_html_string(id, false);
         Ok(SerHtmlFrag {
             meta,
-            kstring: KString::from_string(s)
+            string: s.into()
         })
     }
 

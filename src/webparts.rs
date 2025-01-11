@@ -492,14 +492,14 @@ pub fn blog_handler<L: Language + 'static>(
                         // an individual post; XX check that the part of
                         // the path used contains the date?
                         let head_title = html.kstring(blogpost.title_plain.clone())?;
-                        let title = html.preserialized(&blogpost.title_html)?;
-                        let toc = html.preserialized(&blogpost.toc)?;
+                        let title = html.preserialized(blogpost.title_html.clone())?;
+                        let toc = html.preserialized(blogpost.toc.clone())?;
                         let lead = blogpost.lead.as_ref()
-                            .map(|a| html.preserialized(a)).transpose()?;
-                        let main = html.preserialized(&blogpost.main)?;
+                            .map(|a| html.preserialized(a.clone())).transpose()?;
+                        let main = html.preserialized(blogpost.main.clone())?;
                         let opt_footnotes =
                             if blogpost.num_footnotes > 0 {
-                                Some(html.preserialized(&blogpost.footnotes)?)
+                                Some(html.preserialized(blogpost.footnotes.clone())?)
                             } else {
                                 None
                             };
@@ -586,7 +586,7 @@ pub fn blog_handler<L: Language + 'static>(
                                                                 [att("href", &url)],
                                                                 [
                                                                     html.preserialized(
-                                                                        &blogpost.title_html)?
+                                                                        blogpost.title_html.clone())?
                                                                 ])?
                                                         ])?))
                                                 };

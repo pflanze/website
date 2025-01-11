@@ -31,11 +31,11 @@ pub struct Breadcrumb {
     // Evil, they are, URLs. Because this is preserialized, can't mod
     // the contained links later (and don't want to even think about
     // preserialized-with-holes), so we pregenerate both variants.
-    without_slash: Arc<SerHtmlFrag>,  // for "2023/10/23" urls
-    with_slash: Arc<SerHtmlFrag>      // for "2023/10/23/" urls
+    without_slash: SerHtmlFrag,  // for "2023/10/23" urls
+    with_slash: SerHtmlFrag      // for "2023/10/23/" urls
 }
 impl Breadcrumb {
-    pub fn with_slash(&self, with_slash: bool) -> Arc<SerHtmlFrag> {
+    pub fn with_slash(&self, with_slash: bool) -> SerHtmlFrag {
         if with_slash {
             &self.with_slash
         } else {
@@ -49,15 +49,15 @@ pub struct BlogPost {
     pub cmpfilemeta: CmpFileMeta,
     pub publish_date: NaiveDate, // parsed from file path
     pub title_plain: KString,
-    pub title_html: Arc<SerHtmlFrag>,
+    pub title_html: SerHtmlFrag,
     /// The table of contents
-    pub toc: Arc<SerHtmlFrag>,
+    pub toc: SerHtmlFrag,
     /// The part before the first header, or the first paragraph (teaser)
-    pub lead: Option<Arc<SerHtmlFrag>>,
+    pub lead: Option<SerHtmlFrag>,
     /// The part after the lead
-    pub main: Arc<SerHtmlFrag>,
+    pub main: SerHtmlFrag,
     pub num_footnotes: usize,
-    pub footnotes: Arc<SerHtmlFrag>,
+    pub footnotes: SerHtmlFrag,
     pub breadcrumb: Breadcrumb,
 }
 impl BlogPost {
@@ -161,7 +161,7 @@ fn breadcrumbhtml<'f>(
     html: &HtmlAllocator,
     parsed_context: &'f List<ParsedContextFrame<'f>>,
     top_relpath: &str, // "." or ".."
-) -> Result<Arc<SerHtmlFrag>> {
+) -> Result<SerHtmlFrag> {
     let mut v: AVec<Node> = html.new_vec();
     let mut l = parsed_context;
     let mut uplink = String::from(top_relpath);
@@ -184,15 +184,14 @@ fn breadcrumbhtml<'f>(
     }
     v.reverse();
     Ok(
-        Arc::new(
-            html.preserialize(
-                html.div(
-                    [att("class", "breadcrumb")],
-                    [
-                        html.ul(
-                            [],
-                            v.as_slice())?
-                    ])?)?))
+        html.preserialize(
+            html.div(
+                [att("class", "breadcrumb")],
+                [
+                    html.ul(
+                        [],
+                        v.as_slice())?
+                ])?)?)
 }
 
 fn breadcrumb<'f>(
@@ -416,21 +415,16 @@ fn populate<'f, 'c>(
                                         publish_date,
                                         title_plain:
                                         html.to_plain_string(title)?,
-                                        title_html:
-                                        Arc::new(html.preserialize(title)?),
-                                        toc:
-                                        Arc::new(html.preserialize(toc)?),
+                                        title_html: html.preserialize(title)?,
+                                        toc: html.preserialize(toc)?,
                                         lead:
-                                        lead.try_map(|id| -> Result<_> {
-                                            Ok(Arc::new(html.preserialize(id)?))
+                                        lead.try_map(|id| {
+                                            html.preserialize(id)
                                         })?,
-                                        main:
-                                        Arc::new(html.preserialize(main)?),
+                                        main: html.preserialize(main)?,
                                         num_footnotes,
-                                        footnotes:
-                                        Arc::new(html.preserialize(footnotes)?),
-                                        breadcrumb:
-                                        breadcrumb(html, parsed_context)?,
+                                        footnotes: html.preserialize(footnotes)?,
+                                        breadcrumb: breadcrumb(html, parsed_context)?,
                                     }
                                 }
                             };

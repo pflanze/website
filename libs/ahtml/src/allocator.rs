@@ -14,7 +14,7 @@ use chj_util::{partialbacktrace::PartialBacktrace, warn};
 use kstring::KString;
 use lazy_static::lazy_static;
 
-use crate::{myfrom::MyFrom, arc_util::IntoArc, more_vec::MoreVec, stillvec::StillVec};
+use crate::{myfrom::MyFrom, more_vec::MoreVec, stillvec::StillVec};
 
 pub type Context = Arc<dyn Display + Sync + Send + RefUnwindSafe>;
 
@@ -468,12 +468,12 @@ impl HtmlAllocator {
 
     pub fn preserialized(
         &self,
-        val: impl IntoArc<SerHtmlFrag>
+        val: SerHtmlFrag
     ) -> Result<AId<Node>> {
         // ever copy-paste
         let id_ = self.nodes.len();
         // /copy-paste
-        self.nodes.push_within_capacity_(Some(Node::Preserialized(val.into_arc())))
+        self.nodes.push_within_capacity_(Some(Node::Preserialized(val)))
             .map_err(|_e| self.out_of_memory_error("nodes", self.nodes.capacity()))?;
         // copy-paste
         Ok(AId::new(self.regionid, id_ as u32))
@@ -1094,11 +1094,13 @@ impl<'a> ASlice<Node> {
 
 /// Serialized HTML fragment string. Can be included in
 /// Node:s. Contains the metainformation about the outermost element
-/// in the serialized fragment for dynamic DOM checking.
-#[derive(Debug)]
+/// in the serialized fragment for dynamic DOM checking, and an
+/// Arc<str> with the serialized data; `SerHtmlFrag` is thus
+/// (reasonably) cheap to clone.
+#[derive(Debug, Clone)]
 pub struct SerHtmlFrag {
     pub(crate) meta: &'static ElementMeta,
-    pub(crate) kstring: KString
+    pub(crate) string: Arc<str>
 }
 
 impl SerHtmlFrag {
@@ -1106,9 +1108,14 @@ impl SerHtmlFrag {
     pub fn meta(&self) -> &'static ElementMeta {
         self.meta
     }
+
     #[inline(always)]
     pub fn as_str(&self) -> &str {
-        &self.kstring
+        &*self.string
+    }
+
+    pub fn as_arc_str(&self) -> Arc<str> {
+        self.string.clone()
     }
 }
 
@@ -1118,7 +1125,7 @@ impl SerHtmlFrag {
 pub enum Node {
     Element(Element),
     String(KString),
-    Preserialized(Arc<SerHtmlFrag>),
+    Preserialized(SerHtmlFrag),
     None,
 }
 
