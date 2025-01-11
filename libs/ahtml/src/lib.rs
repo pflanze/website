@@ -299,7 +299,8 @@ impl HtmlAllocator {
 
         // Safe because v was filled from bytes derived from
         // String/str values and byte string literals (typed in via
-        // Emacs) that were simply concatenated together.
+        // Emacs, but rustc would refuse non-UTF8 sequences anyway?)
+        // that were simply concatenated together.
         unsafe { String::from_utf8_unchecked(v) }
     }
 
