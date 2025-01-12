@@ -23,7 +23,7 @@ checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
 
 [[package]]
 name = "ahtml"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "ahtml_html",
  "anyhow",
