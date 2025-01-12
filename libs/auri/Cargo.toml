@@ -8,7 +8,7 @@ description = "Another URI manipulation library"
 repository = "https://github.com/pflanze/website"
 
 [dependencies]
-chj-util = { version = "0.2.0", path = "../chj-util" }
+chj-util = { version = "0.2.1", path = "../chj-util" }
 ahtml = { version = "0.6", path = "../ahtml" }
 
 thiserror = "1.0"
