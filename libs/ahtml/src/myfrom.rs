@@ -72,6 +72,56 @@ impl MyFrom<usize> for KString {
 // Ah, cannot have errors here. So, do the conversion manually
 // outside, please.
 
+// ------------------------------------------------------------------
+
+impl MyFrom<&str> for String {
+    fn myfrom(s: &str) -> Self {
+        s.into()
+    }
+}
+
+impl MyFrom<&&str> for String {
+    fn myfrom(s: &&str) -> Self {
+        s.to_string()
+    }
+}
+
+impl MyFrom<&String> for String {
+    fn myfrom(s: &String) -> Self {
+        s.clone()
+    }
+}
+
+impl MyFrom<String> for String {
+    fn myfrom(s: String) -> Self {
+        s
+    }
+}
+
+impl MyFrom<&KString> for String {
+    fn myfrom(s: &KString) -> Self {
+        s.to_string()
+    }
+}
+
+impl MyFrom<KString> for String {
+    fn myfrom(s: KString) -> Self {
+        s.to_string()
+    }
+}
+
+impl<'t> MyFrom<Cow<'t, str>> for String {
+    fn myfrom(s: Cow<'t, str>) -> Self {
+        s.into()
+    }
+}
+
+impl MyFrom<usize> for String {
+    fn myfrom(val: usize) -> Self {
+        val.to_string()
+    }
+}
+
 
 
 // ------------------------------------------------------------------
