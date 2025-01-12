@@ -2,9 +2,9 @@ use anyhow::Result;
 use kstring::KString;
 
 use ahtml::{HtmlAllocator, AId, Node, TryCollectBody, att};
+use auri::ppath::PPath;
 
-use crate::{acontext::AContext,
-            ppath::PPath, language::Language};
+use crate::{acontext::AContext, language::Language};
 
 pub trait ToHtml {
     fn to_html<L: Language>(

@@ -4,10 +4,10 @@ use std::{fmt::Debug, borrow::Borrow, slice, iter::Rev};
 use anyhow::{Result, bail};
 use kstring::KString;
 
-use crate::{myasstr::MyAsStr,
-            path::path_segments,
-            trie::{Trie, TrieIter, TrieIterReportStyle},
-            ppath::PPath};
+use chj_util::myasstr::MyAsStr;
+use auri::{path::path_segments, ppath::PPath};
+    
+use crate::trie::{Trie, TrieIter, TrieIterReportStyle};
 
 
 // Allow single entries as endpoints.

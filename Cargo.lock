@@ -123,6 +123,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "auri"
+version = "0.1.0"
+dependencies = [
+ "ahtml",
+ "anyhow",
+ "chj-util",
+ "itertools",
+ "kstring",
+ "pct-str",
+ "thiserror",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -256,6 +269,7 @@ name = "chj-util"
 version = "0.2.0"
 dependencies = [
  "backtrace",
+ "kstring",
 ]
 
 [[package]]
@@ -1777,6 +1791,7 @@ dependencies = [
  "ahtml_html",
  "anyhow",
  "argon2",
+ "auri",
  "backtrace",
  "base64",
  "blake3",

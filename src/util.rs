@@ -1,4 +1,11 @@
-use std::{hash::Hash, collections::{HashMap, hash_map::{Entry, OccupiedEntry}, BTreeMap, btree_map}, borrow::Borrow, time::Duration, fmt::{Display, Debug}, ffi::{OsString, OsStr}, path::PathBuf, fs::create_dir_all, env::VarError};
+use std::{hash::Hash,
+          collections::{HashMap, hash_map::{Entry, OccupiedEntry}, BTreeMap, btree_map},
+          borrow::Borrow,
+          time::Duration,
+          fmt::{Display, Debug},
+          ffi::{OsString, OsStr},
+          path::PathBuf,
+          fs::create_dir_all, env::VarError};
 
 use anyhow::{Result, anyhow, Context, bail};
 use num::CheckedAdd;
@@ -145,31 +152,6 @@ pub fn duration_mul_div(orig: Duration, multiplier: u64, divider: u64)
         .checked_div(divider as u128)?
         .try_into().ok()?;
     Some(Duration::from_nanos(nanos))
-}
-
-
-pub fn first<T>(items: &[T]) -> Option<&T> {
-    if items.len() > 0 {
-        Some(&items[0])
-    } else {
-        None
-    }
-}
-
-pub fn rest<T>(items: &[T]) -> Option<&[T]> {
-    if items.len() > 0 {
-        Some(&items[1..])
-    } else {
-        None
-    }
-}
-
-pub fn first_and_rest<T>(items: &[T]) -> Option<(&T, &[T])> {
-    if items.len() > 0 {
-        Some((&items[0], &items[1..]))
-    } else {
-        None
-    }
 }
 
 

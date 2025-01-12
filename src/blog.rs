@@ -10,13 +10,12 @@ use kstring::KString;
 
 use ahtml::{SerHtmlFrag, HtmlAllocator, HtmlAllocatorPool, AVec, Node, att, myfrom::MyFrom};
 use ahtml::{H2_META, P_META};
-use chj_util::{nodt as dt, time, notime};
-
+use auri::path::{extension_eq, base, IntoBoxPath};
+use chj_util::{nodt as dt, time, notime, slice::first_and_rest};
+            
 use crate::{router::UniqueRouter,
-            util::first_and_rest,
             markdown::{MarkdownFile, StylingInterface},
             conslist::{List, cons},
-            path::{extension_eq, base, IntoBoxPath},
             miniarcswap::MiniArcSwap,
             cmpfilemeta::{CmpFileMeta, GetCmpFileMeta},
             easyfiletype::EasyFileType,

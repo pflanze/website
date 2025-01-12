@@ -8,8 +8,9 @@ use std::fmt::Debug;
 
 use ahtml::myfrom::MyFrom;
 use anyhow::{Result, bail};
+use chj_util::{myasstr::MyAsStr, slice::{first, rest}};
 
-use crate::{path::path_segments, util::{rest, first}, myasstr::MyAsStr};
+use crate::path::path_segments;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct PPath<Segment: Clone + Debug> {

@@ -1,15 +1,22 @@
 [package]
-name = "chj-util"
-version = "0.2.0"
+name = "auri"
+version = "0.1.0"
 edition = "2021"
 authors = ["Christian Jaeger <ch@christianjaeger.ch>"]
 license = "MIT OR Apache-2.0"
-description = "A collection of utilities shared between my crates"
+description = "Another URI manipulation library"
 repository = "https://github.com/pflanze/website"
 
 [dependencies]
-backtrace = "0.3"
+chj-util = { version = "0.2.0", path = "../chj-util" }
+ahtml = { version = "0.6", path = "../ahtml" }
+
+thiserror = "1.0"
+anyhow = { version = "1.0.14", features = ["backtrace"] }
+pct-str = "2.0.0"
 kstring = "1.0"
+itertools = "0.10"
+
 
 [profile.dev]
 panic = "abort"
@@ -22,4 +29,5 @@ lto = "off"
 opt-level = 2
 
 [profile.release]
+# really useful? cost?
 overflow-checks = true

@@ -5,10 +5,14 @@
 
 //! Also, I may want relative paths, too?
 
+pub mod path;
+pub mod url_encoding;
+pub mod ppath;
+
 use kstring::KString;
 
-use crate::{ppath::PPath, url_encoding::{url_encode, url_decode, UrlDecodingError}};
-
+use ppath::PPath;
+use url_encoding::{url_encode, url_decode, UrlDecodingError};
 
 // ------------------------------------------------------------------
 

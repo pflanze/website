@@ -10,6 +10,7 @@ publish = false
 chj-util = { path = "libs/chj-util" }
 ahtml_html = { path = "libs/ahtml_html" }
 ahtml = { path = "libs/ahtml" }
+auri = { path = "libs/auri" }
 
 anyhow = { version = "1.0.14", features = ["backtrace"] }
 thiserror = "1.0"

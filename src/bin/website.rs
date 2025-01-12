@@ -8,6 +8,7 @@ use anyhow::{Result, bail};
 use ahtml::allocator::AHTML_TRACE;
 use ahtml::flat::Flat;
 use ahtml::{HtmlAllocatorPool, HtmlAllocator, Node, att};
+use auri::{path::base_and_suffix, ppath::PPath};
 
 use website::access_control::db::access_control_transaction;
 use website::access_control::statements_and_methods::DO_WARN_THREAD;
@@ -22,8 +23,6 @@ use website::http_response_status_codes::HttpResponseStatusCode;
 use website::imageinfo::static_img;
 use website::io_util::my_read_to_string;
 use website::lang_en_de::Lang;
-use website::path::base_and_suffix;
-use website::ppath::PPath;
 use website::rouille_runner::{RouilleRunner, Tlskeys};
 use website::style::footnotes::{WikipediaStyle, BlogStyle};
 use website::handler::{ExactFnHandler, RedirectHandler};
