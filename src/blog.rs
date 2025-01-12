@@ -358,7 +358,6 @@ fn populate<'f, 'c>(
                                             bail!("guaranteed to not have atts, no?")
                                         }
                                         let bodyslice = elt.body().clone();
-                                        drop(bodynode);
                                         let div = |slice| html.div([], slice);
                                         let no_lead = || -> Result<_> {
                                             Ok((None, div(bodyslice)?))
@@ -382,7 +381,6 @@ fn populate<'f, 'c>(
                                                 "guaranteed");
                                             if let Some(e) = firstnode.as_element() {
                                                 if e.meta == *P_META {
-                                                    drop(firstnode);
                                                     (Some(first), div(rest)?)
                                                 } else {
                                                     no_lead()?

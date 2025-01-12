@@ -451,7 +451,6 @@ impl ProcessedMarkdown {
                                     attr: elt.attr().clone(),
                                     body: elt.body().clone()
                                 };
-                                drop(node);
                                 Ok(Some(html.allocate_element(elt2)?))
                             } else {
                                 Ok(Some(id))
