@@ -415,7 +415,7 @@ impl HtmlAllocator {
         // other than through the `push_within_capacity_` call, which
         // was in the same borrow scope before, "too".)
         let id_ = self.nodes.len();
-        self.nodes.push_within_capacity_(Some(Node::Element(Element {
+        self.nodes.push_within_capacity(Some(Node::Element(Element {
             meta,
             attr,
             body
@@ -434,14 +434,14 @@ impl HtmlAllocator {
     ) -> Result<AId<Node>> {
         // much COPY-PASTE always
         let id_ = self.nodes.len();
-        self.nodes.push_within_capacity_(Some(Node::String(s)))
+        self.nodes.push_within_capacity(Some(Node::String(s)))
             .map_err(|_e| self.out_of_memory_error("nodes", self.nodes.capacity()))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
     pub fn empty_node(&self) -> Result<AId<Node>> {
         // much COPY-PASTE always
         let id_ = self.nodes.len();
-        self.nodes.push_within_capacity_(Some(Node::None))
+        self.nodes.push_within_capacity(Some(Node::None))
             .map_err(|_e| self.out_of_memory_error("nodes", self.nodes.capacity()))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
@@ -452,7 +452,7 @@ impl HtmlAllocator {
     ) -> Result<AId<(KString, KString)>>
     {
         let id_ = self.atts.len();
-        self.atts.push_within_capacity_(Some(att))
+        self.atts.push_within_capacity(Some(att))
             .map_err(|_e| self.out_of_memory_error("atts", self.atts.capacity()))?;
         Ok(AId::new(self.regionid, id_ as u32))
     }
@@ -473,7 +473,7 @@ impl HtmlAllocator {
         // ever copy-paste
         let id_ = self.nodes.len();
         // /copy-paste
-        self.nodes.push_within_capacity_(Some(Node::Preserialized(val)))
+        self.nodes.push_within_capacity(Some(Node::Preserialized(val)))
             .map_err(|_e| self.out_of_memory_error("nodes", self.nodes.capacity()))?;
         // copy-paste
         Ok(AId::new(self.regionid, id_ as u32))

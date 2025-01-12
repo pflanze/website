@@ -30,7 +30,7 @@ impl<T> StillVec<T> {
         unsafe {&*p}.capacity()
     }
 
-    pub fn push_within_capacity_(&self, value: T) -> Result<(), T> {
+    pub fn push_within_capacity(&self, value: T) -> Result<(), T> {
         let p = self.0.get();
         // Safe because pushing within capacity will not cause
         // reallocations, hence will not invalidate other references,
