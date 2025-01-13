@@ -5,7 +5,7 @@ use crate::{AId, Node, HtmlAllocator, ToASlice, att, NBSP};
 use super::autolink;
 
 
-/// Create plain text to HTML that mimicks <pre>, but still allows
+/// Create plain text to HTML that mimicks `<pre>`, but still allows
 /// dynamic line breaks
 pub struct SoftPre {
     /// Whether to replace tabs with the given number of non-breaking

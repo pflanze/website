@@ -1095,7 +1095,7 @@ impl<'a> ASlice<Node> {
 /// Serialized HTML fragment string. Can be included in
 /// Node:s. Contains the metainformation about the outermost element
 /// in the serialized fragment for dynamic DOM checking, and an
-/// Arc<str> with the serialized data; `SerHtmlFrag` is thus
+/// `Arc<str>` with the serialized data; `SerHtmlFrag` is thus
 /// (reasonably) cheap to clone.
 #[derive(Debug, Clone)]
 pub struct SerHtmlFrag {

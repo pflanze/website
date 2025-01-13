@@ -1,6 +1,6 @@
 //! A 24-bit unsigned integer type that only takes up 24 bits of space
 //! (unlike `u24` in the `ux` crate which takes up "as much space as
-//! the smallest integer type that can contain [it]" and hence 32
+//! the smallest integer type that can contain \[it\]" and hence 32
 //! bits?)
 
 pub const U24MAX: u32 = 1 << 24 - 1;
