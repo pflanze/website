@@ -9,7 +9,7 @@ repository = "https://github.com/pflanze/website"
 
 [dependencies]
 chj-util = { version = "0.2.1", path = "../chj-util" }
-ahtml = { version = "0.6", path = "../ahtml" }
+ahtml = { version = "0.7", path = "../ahtml" }
 
 thiserror = "1.0"
 anyhow = { version = "1.0.14", features = ["backtrace"] }
