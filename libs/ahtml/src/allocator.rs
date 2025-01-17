@@ -528,6 +528,8 @@ impl HtmlAllocator {
         self.new_string(KString::from_ref(s))
     }
 
+    /// Create a text node (i.e. put the given string into the
+    /// allocator, return the id to it)
     // (XX hmm, has issue with not offering KString &'static str
     // optimization, right? This is only a small issue, though. Yes,
     // use `str` method for that. AH, staticstr, rename it.)
@@ -538,6 +540,18 @@ impl HtmlAllocator {
     where KString: MyFrom<T>
     {
         self.new_string(KString::myfrom(s))
+    }
+
+    /// Like `text` but returns an `ASlice` containing the single text
+    /// node, for contexts that expect a slice (i.e. any number of
+    /// nodes).
+    pub fn text_slice<T>(
+        &self,
+        s: T
+    ) -> Result<ASlice<Node>>
+    where KString: MyFrom<T>
+    {
+        self.new_string(KString::myfrom(s))?.to_aslice(self)
     }
 
     // XX remove now that there's text()?
