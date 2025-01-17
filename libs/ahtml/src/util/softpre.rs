@@ -15,8 +15,8 @@ pub struct SoftPre {
     /// Whether to turn http:// and https:// URLs into links.
     pub autolink: bool,
 
-    /// The text is split on this string into lines
-    pub line_separator: &'static str
+    /// The input text is split on this string into lines
+    pub input_line_separator: &'static str
 }
 
 impl Default for SoftPre {
@@ -24,7 +24,7 @@ impl Default for SoftPre {
         Self {
             tabs_to_nbsp: Some(8),
             autolink: true,
-            line_separator: "\n",
+            input_line_separator: "\n",
         }
     }
 }
@@ -32,7 +32,7 @@ impl Default for SoftPre {
 impl SoftPre {
     pub fn format(&self, text: &str, html: &HtmlAllocator) -> Result<AId<Node>> {
         let mut formatted_body = html.new_vec();
-        for line in text.split(self.line_separator) {
+        for line in text.split(self.input_line_separator) {
             let mut formatted_line =
                 if self.autolink {
                     autolink(html, line)?
