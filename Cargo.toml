@@ -6,6 +6,30 @@ authors = ["Christian Jaeger <ch@christianjaeger.ch>"]
 license = "MIT OR Apache-2.0"
 publish = false
 
+[profile.dev]
+panic = "abort"
+# [profile.release]
+# panic = "abort"
+lto = "off"
+# ^ XX does this help ?
+
+# Set the default for dependencies.
+[profile.dev.package."*"]
+opt-level = 2
+
+[profile.release]
+# lto = false
+# default anyway?
+# lto = "off"
+# ^ XX does this help ?
+overflow-checks = true
+
+[patch.crates-io]
+addr2line = { path = "../src/addr2line" }
+
+[build-dependencies]
+pkg-config = "0.3"
+
 [dependencies]
 chj-util = { path = "libs/chj-util" }
 ahtml_html = { path = "libs/ahtml_html" }
@@ -56,28 +80,3 @@ html5gum = { version = "0.5", default-features = false, features = [] }
 backtrace = "0.3"
 getrandom = "0.2"
 cmark-syntax = { version = "0.4", default-features = false }
-
-[patch.crates-io]
-addr2line = { path = "../src/addr2line" }
-
-[build-dependencies]
-pkg-config = "0.3"
-
-[profile.dev]
-panic = "abort"
-# [profile.release]
-# panic = "abort"
-lto = "off"
-# ^ XX does this help ?
-
-# Set the default for dependencies.
-[profile.dev.package."*"]
-opt-level = 2
-
-
-[profile.release]
-# lto = false
-# default anyway?
-# lto = "off"
-# ^ XX does this help ?
-overflow-checks = true

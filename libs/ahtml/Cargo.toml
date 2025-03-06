@@ -7,15 +7,6 @@ license = "MIT OR Apache-2.0"
 description = "An HTML templating and manipulation library"
 repository = "https://github.com/pflanze/website"
 
-[dependencies]
-chj-util = { version = "0.2.0", path = "../chj-util" }
-ahtml_html = { version = "0.1.0", path = "../ahtml_html" }
-backtrace = "0.3"
-kstring = "1.0"
-anyhow = { version = "1.0.14", features = ["backtrace"] }
-lazy_static = "1.4.0"
-
-
 [profile.dev]
 panic = "abort"
 # [profile.release]
@@ -28,3 +19,13 @@ opt-level = 2
 
 [profile.release]
 overflow-checks = true
+
+[dependencies]
+chj-util = { version = "0.2.0", path = "../chj-util" }
+ahtml_html = { version = "0.1.0", path = "../ahtml_html" }
+backtrace = "0.3"
+kstring = "1.0"
+anyhow = { version = "1.0.14", features = ["backtrace"] }
+lazy_static = "1.4.0"
+
+

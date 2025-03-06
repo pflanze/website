@@ -7,17 +7,6 @@ license = "MIT OR Apache-2.0"
 description = "Another URI manipulation library"
 repository = "https://github.com/pflanze/website"
 
-[dependencies]
-chj-util = { version = "0.2.1", path = "../chj-util" }
-ahtml = { version = "0.7", path = "../ahtml" }
-
-thiserror = "1.0"
-anyhow = { version = "1.0.14", features = ["backtrace"] }
-pct-str = "2.0.0"
-kstring = "1.0"
-itertools = "0.10"
-
-
 [profile.dev]
 panic = "abort"
 # [profile.release]
@@ -31,3 +20,14 @@ opt-level = 2
 [profile.release]
 # really useful? cost?
 overflow-checks = true
+
+[dependencies]
+chj-util = { version = "0.2.1", path = "../chj-util" }
+ahtml = { version = "0.7", path = "../ahtml" }
+
+thiserror = "1.0"
+anyhow = { version = "1.0.14", features = ["backtrace"] }
+pct-str = "2.0.0"
+kstring = "1.0"
+itertools = "0.10"
+
