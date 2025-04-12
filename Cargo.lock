@@ -34,6 +34,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ahtml-from-markdown"
+version = "0.1.0"
+dependencies = [
+ "ahtml",
+ "ahtml_html",
+ "anyhow",
+ "chj-util",
+ "html5gum",
+ "kstring",
+ "num",
+ "pulldown-cmark",
+ "thiserror",
+]
+
+[[package]]
 name = "ahtml_html"
 version = "0.1.0"
 dependencies = [
@@ -1788,6 +1803,7 @@ name = "website"
 version = "0.1.0"
 dependencies = [
  "ahtml",
+ "ahtml-from-markdown",
  "ahtml_html",
  "anyhow",
  "argon2",

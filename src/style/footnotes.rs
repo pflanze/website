@@ -1,9 +1,8 @@
 use anyhow::Result;
 
 use ahtml::{Node, ASlice, HtmlAllocator, AId, att, flat::Flat};
-
-use crate::{markdown::{StylingInterface, Footnoteref, Backref, StylingContextInterface},
-            util::alphanumber};
+use ahtml_from_markdown::markdown::{StylingInterface, Footnoteref, Backref, StylingContextInterface};
+use ahtml_from_markdown::util::alphanumber;
 
 // ------------------------------------------------------------------
 

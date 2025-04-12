@@ -4,8 +4,9 @@
 use std::process::{Command, ExitStatus};
 
 use anyhow::{Result, anyhow, Context, bail};
+use ahtml_from_markdown::try_result;
 
-use crate::{try_result, stringsplit::StringSplit};
+use crate::stringsplit::StringSplit;
 
 
 /// Run a command without capturing anything, returning its status.

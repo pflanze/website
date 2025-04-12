@@ -1,10 +1,13 @@
 //! Convert markdown to HTML.
 
 use std::{path::PathBuf, fmt::{Display, Debug}, collections::HashMap,
-          panic::RefUnwindSafe, str::Utf8Error, string::FromUtf8Error};
+          panic::RefUnwindSafe, str::Utf8Error, string::FromUtf8Error,
+          fs::read_to_string};
+
 use html5gum::{Token, HtmlString};
 use kstring::KString;
 use pulldown_cmark::{Parser, Options, Event, Tag, HeadingLevel, LinkType};
+use anyhow::Context;
 
 use ahtml::{AId, HtmlAllocator, Node, AVec, P_META,
                      H1_META, H2_META, H3_META, H4_META, H5_META, H6_META,
@@ -19,10 +22,9 @@ use chj_util::{nowarn_todo as warn_todo,
                nowarn as warn,
                nodt as dt};
 
-use crate::{webutils::email_url,
+use crate::{webutils_simple::email_url,
             util::{infinite_sequence, autovivify_last, enum_name},
             try_option,
-            io_util::my_read_to_string,
             myfrom::kstring_myfrom2};
 
 #[derive(thiserror::Error, Debug)]
@@ -610,7 +612,8 @@ impl MarkdownFile {
         // `Parser` is NOT supporting streaming. For reasons of
         // shining in (superficial) performance bencharks?
         // XX impose a size limit on the markdown file here?
-        let s = my_read_to_string(&self.path)?;
+        let s = read_to_string(&self.path)
+            .with_context(|| anyhow::anyhow!("can't read file {:?}", self.path))?;
         let mut parser = Parser::new_ext(&s, options);
 
         // Context

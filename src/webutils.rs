@@ -4,7 +4,7 @@ use rouille::{Response, ResponseBody};
 
 use ahtml::{Node, AId, HtmlAllocator};
 use auri::ppath::PPath;
-use chj_util::{nopp as pp, nodt as dt, warn};
+use chj_util::{nopp as pp, nodt as dt};
 
 use crate::acontext::AContext;
 use crate::http_response_status_codes::HttpResponseStatusCode;
@@ -98,15 +98,3 @@ pub fn request_resolve_relative<L: Language>(
 }
 
 
-// Use CowStr ?
-pub fn email_url(s: &str) -> String {
-    if s.starts_with("mailto:") {
-        s.into()
-    } else if s.starts_with("https:") || s.starts_with("http:") {
-        warn!("using a non-email URL where an email address was expected: {s:?}");
-        s.into()
-    } else {
-        // hope all is well !
-        format!("mailto:{s}")
-    }
-}

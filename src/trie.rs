@@ -8,8 +8,7 @@ use anyhow::{Result, bail};
 use kstring::KString;
 
 use chj_util::{nodt as dt, slice::first_and_rest, myasstr::MyAsStr};
-
-use crate::util::{debug_stringlikes, btreemap_try_insert, btreemap_get_mut};
+use ahtml_from_markdown::util::{debug_stringlikes, btreemap_try_insert, btreemap_get_mut};
 
 #[allow(dead_code)]
 fn debug_path<P: Eq + MyAsStr>(

@@ -9,6 +9,8 @@ use ahtml::allocator::AHTML_TRACE;
 use ahtml::flat::Flat;
 use ahtml::{HtmlAllocatorPool, HtmlAllocator, Node, att};
 use auri::{path::base_and_suffix, ppath::PPath};
+use ahtml_from_markdown::markdown::StylingInterface;
+use ahtml_from_markdown::util::{log_basedir, getenv_or, getenv, xgetenv, getenv_bool};
 
 use website::access_control::db::access_control_transaction;
 use website::access_control::statements_and_methods::DO_WARN_THREAD;
@@ -28,10 +30,8 @@ use website::style::footnotes::{WikipediaStyle, BlogStyle};
 use website::handler::{ExactFnHandler, RedirectHandler};
 use website::handler::FileHandler;
 use lazy_static::lazy_static;
-use website::markdown::StylingInterface;
 use website::nav::{Nav, NavEntry, SubEntries};
 use website::router::MultiRouter;
-use website::util::{log_basedir, getenv_or, getenv, xgetenv, getenv_bool};
 use website::webparts::{markdownpage_handler, blog_handler,
                         login_handler, Restricted, unlisted_markdowndir_handler,
                         language_handler, mixed_dir_handler};
