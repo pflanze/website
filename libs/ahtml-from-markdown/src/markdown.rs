@@ -10,11 +10,11 @@ use pulldown_cmark::{Parser, Options, Event, Tag, HeadingLevel, LinkType};
 use anyhow::Context;
 
 use ahtml::{AId, HtmlAllocator, Node, AVec, P_META,
-                     H1_META, H2_META, H3_META, H4_META, H5_META, H6_META,
-                     DIV_META, OL_META, UL_META, LI_META, PRE_META,
-                     BLOCKQUOTE_META, TABLE_META, TH_META, TR_META,
-                     TD_META, EM_META, STRONG_META, S_META, METADB, ASlice, Print,
-                     TITLE_META, Element,
+            H1_META, H2_META, H3_META, H4_META, H5_META, H6_META,
+            DIV_META, OL_META, UL_META, LI_META, PRE_META,
+            BLOCKQUOTE_META, TABLE_META, TH_META, TR_META,
+            TD_META, EM_META, STRONG_META, S_META, METADB, ASlice, Print,
+            TITLE_META, Element,
             att, flat::Flat};
 use ahtml_html::meta::ElementMeta;
 
