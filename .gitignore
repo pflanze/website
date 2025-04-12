@@ -7,4 +7,3 @@ accounts.db-*
 /.cargo/
 target/
 /www-data
-Cargo.lock
