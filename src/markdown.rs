@@ -2,7 +2,6 @@
 
 use std::{path::PathBuf, fmt::{Display, Debug}, collections::HashMap, panic::RefUnwindSafe};
 use anyhow::{Result, anyhow, bail};
-use backtrace::Backtrace;
 use html5gum::{Token, HtmlString};
 use kstring::KString;
 use pulldown_cmark::{Parser, Options, Event, Tag, HeadingLevel, LinkType};
@@ -26,9 +25,15 @@ use crate::{webutils::email_url,
             io_util::my_read_to_string,
             myfrom::kstring_myfrom2};
 
-fn error_not_an_html5_tag_name(name: &str) -> anyhow::Error {
-    anyhow!("not an HTML5 tag name: {name:?}\n{:?}",
-            Backtrace::new())
+#[derive(thiserror::Error, Debug)]
+pub enum MarkdownFileError {
+    #[error("not an HTML5 tag name in {} tag: {:?}",
+            if *is_opening { "opening" } else { "closing" },
+            name.as_str())]
+    NotAnHTML5TagName {
+        name: KString,
+        is_opening: bool,
+    },
 }
 
 /// This can't be replaced with `att` or the MyFrom trait, because it
@@ -914,7 +919,10 @@ impl MarkdownFile {
                                 let name: &str = std::str::from_utf8(
                                     &**starttag.name)?;
                                 let meta = METADB.elementmeta.get(name).ok_or_else(
-                                    || error_not_an_html5_tag_name(name))?;
+                                    || MarkdownFileError::NotAnHTML5TagName {
+                                        name: KString::from_ref(name),
+                                        is_opening: true
+                                    })?;
                                 let mut newframe = new_contextframe!(
                                     ContextTag::Html(meta));
                                 for (k, v) in starttag.attributes {
@@ -937,7 +945,10 @@ impl MarkdownFile {
                                 let name: &str = std::str::from_utf8(
                                     &**endtag.name)?;
                                 let meta = METADB.elementmeta.get(name).ok_or_else(
-                                    || error_not_an_html5_tag_name(name))?;
+                                    || MarkdownFileError::NotAnHTML5TagName {
+                                        name: KString::from_ref(name),
+                                        is_opening: false
+                                    })?;
                                 if meta.has_closing_tag {
                                     let (atts, body, outerframe) =
                                         // XX error context. if only I had
