@@ -587,578 +587,589 @@ struct ContextFrame<'a, 't> {
 }
 
 
+/// Convert to HTML, and capture metainformation to allow for
+/// creation of TOC and footnotes section.
+pub fn markdown_to_html(
+    s: &str, html: &HtmlAllocator
+) -> Result<ProcessedMarkdown, MarkdownFileError>
+{
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_TABLES);
+    options.insert(Options::ENABLE_FOOTNOTES);
+    options.insert(Options::ENABLE_STRIKETHROUGH);
+    options.insert(Options::ENABLE_TASKLISTS);
+    options.insert(Options::ENABLE_SMART_PUNCTUATION);// XX config
+    options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
+
+    let mut parser = Parser::new_ext(&s, options);
+
+    // Context
+    let mut _context: Vec<ContextFrame> = Vec::new();
+    let mut context = &mut _context;
+    // Push a base frame (wrapper around everything):
+    context.push(ContextFrame {
+        tag: ContextTag::Markdown(Tag::Paragraph), // fake
+        atts: AVec::new(html),
+        body: AVec::new(html),
+        last_footnote_reference: None,
+    });
+    macro_rules! new_contextframe {
+        ($tag:expr) => {
+            ContextFrame {
+                tag: $tag,
+                atts: AVec::new(html),
+                body: AVec::new(html),
+                last_footnote_reference: None,
+            }
+        }
+    }
+
+    // Opening a context
+    macro_rules! mdopen {
+        ($tag:expr) => {
+            context.push(new_contextframe!(ContextTag::Markdown($tag)))
+        }
+    }
+
+    // Closing a context
+    let frame_to_element =
+        |frame: ContextFrame, meta: &'static ElementMeta|
+        -> Result<AId<Node>, MarkdownFileError> {
+            Ok(html.new_element(
+                meta,
+                frame.atts.as_slice(),
+                frame.body.as_slice())?)
+        };
+    let close =
+        |
+    context: &mut Vec<ContextFrame>,
+    tag: ContextTag,
+    meta: &'static ElementMeta
+        | -> Result<(), MarkdownFileError>
+    {
+        let frame = context.pop().expect("start before end");
+        frame.tag.assert_eq(&tag)?;
+        let outerframe = context.last_mut()
+            .expect("at least base frame");
+        outerframe.body.push(frame_to_element(frame, meta)?)?;
+        Ok(())
+    };
+    macro_rules! mdclose {
+        ($tag:expr, $meta:expr) => {
+            close(&mut context, ContextTag::Markdown($tag), $meta)
+        }
+    }
+    // Alternative approach:
+    macro_rules! pop {
+        ($tag:expr) => {{
+            // XX minimize code via local function
+            let frame = context.pop().expect("start before end");
+            frame.tag.assert_eq(&$tag)?;
+            let outerframe = context.last_mut()
+                .expect("at least base frame");
+            (frame.atts, frame.body, outerframe)
+        }}
+    }
+    macro_rules! mdpop {
+        ($tag:expr) => {
+            pop!(ContextTag::Markdown($tag))
+        }
+    }
+
+    macro_rules! current_frame {
+        () => {
+            context.last_mut().expect(
+                "At least base frame; at least bug in markdown lib?")
+        }
+    }
+
+    let mut markdownmeta =  MarkdownMeta::new();
+    // let mut current_heading = None;
+    let mut anchor_name = String::new();
+    let mut tmp = String::new();
+    // Anchor names to number of uses, acting as id
+    let mut anchor_names: HashMap<KString, u32> = HashMap::new();
+
+    let mut next_footnote_number = infinite_sequence(1, 1);
+    let mut next_footnote_backreference = infinite_sequence(1, 1);
+
+    while let Some(item) = parser.next() {
+        match item {
+            Event::Start(x) =>
+                match x {
+                    Tag::Paragraph =>
+                        mdopen!(Tag::Paragraph),
+                    Tag::Heading(level, fragmentid, classes) =>
+                        mdopen!(Tag::Heading(level, fragmentid, classes)),
+                    Tag::BlockQuote =>
+                        mdopen!(Tag::BlockQuote),
+                    Tag::CodeBlock(kind) =>
+                        mdopen!(Tag::CodeBlock(kind)),
+                    Tag::List(firstitemnum) =>
+                        mdopen!(Tag::List(firstitemnum)),
+                    Tag::Item =>
+                        mdopen!(Tag::Item),
+                    Tag::FootnoteDefinition(label) =>
+                        mdopen!(Tag::FootnoteDefinition(label)),
+                    Tag::Table(alignments) =>
+                        mdopen!(Tag::Table(alignments)),
+                    Tag::TableHead =>
+                        mdopen!(Tag::TableHead),
+                    Tag::TableRow => 
+                        mdopen!(Tag::TableRow),
+                    Tag::TableCell =>
+                        mdopen!(Tag::TableCell),
+                    Tag::Emphasis => 
+                        mdopen!(Tag::Emphasis),
+                    Tag::Strong => 
+                        mdopen!(Tag::Strong),
+                    Tag::Strikethrough => 
+                        mdopen!(Tag::Strikethrough),
+                    Tag::Link(linktype, url, title) =>
+                        mdopen!(Tag::Link(linktype, url, title)),
+                    Tag::Image(linktype, url, title) =>
+                        mdopen!(Tag::Image(linktype, url, title)),
+                },
+            Event::End(x) =>
+                match x {
+                    Tag::Paragraph =>
+                        mdclose!(Tag::Paragraph, *P_META)?,
+                    Tag::Heading(level, fragmentid, classes) => {
+                        {
+                            // Store generated HTML for this
+                            // heading in markdownmeta, too,
+                            // and add a reference to the html
+                            // element in the body.
+                            let frame = current_frame!();
+                            let bodyslice = frame.body.as_slice();
+                            tmp.clear();
+                            for node in bodyslice.iter_node(html) {
+                                node.print_plain(&mut tmp, html)?;
+                            }
+                            anchor_name.clear();
+                            text_to_anchor(&tmp, &mut anchor_name);
+
+                            // Append number if necessary to avoid conflicts
+                            // (XX should actually do a check like this on the whole
+                            // generated page (uh, preserialized parts!))
+                            let anchor_name_kstr;
+                            'search: loop { // loop bc labels on blocks are unstable
+                                for _ in 0..10 {
+                                    if let Some(counter) = anchor_names.get_mut(&*anchor_name) {
+                                        *counter += 1;
+                                        anchor_name.push_str(&format!("-{}", *counter));
+                                    } else {
+                                        anchor_name_kstr = KString::from(&anchor_name); 
+                                        anchor_names.insert(anchor_name_kstr.clone(), 1);
+                                        break 'search;
+                                    }
+                                }
+                                warn!("more than 10 *levels* of conflicts trying to find \
+                                       unallocated name; leaving it conflicting");
+                                anchor_name_kstr = KString::from(&anchor_name);
+                                break;
+                            }
+
+                            frame.atts.push(
+                                // XX Should offer an `attribute`
+                                // method that accepts 2 arguments
+                                // which are ToKString. clone should
+                                // be faster than from_str.
+                                html.attribute(
+                                    "id", anchor_name_kstr.as_str())?)?;
+
+                            markdownmeta.push_heading(MarkdownHeading {
+                                level,
+                                header: Some(MarkdownHeader{
+                                    html: bodyslice,
+                                    anchor_name: anchor_name_kstr
+                                }),
+                                subheadings: Vec::new()
+                            });
+                        }
+
+                        let meta = elementmeta_from_headinglevel(level);
+                        // XX todo: handle fragmentid, classes
+                        mdclose!(Tag::Heading(level, fragmentid, classes),
+                                 meta)?
+                    }
+                    Tag::BlockQuote =>
+                        mdclose!(Tag::BlockQuote, *BLOCKQUOTE_META)?,
+                    Tag::CodeBlock(kind) => 
+                    // XX kind -> class="language-xxx", and do highlighting
+                        mdclose!(Tag::CodeBlock(kind), *PRE_META)?,
+
+                    Tag::List(firstitemnum) =>
+                        mdclose!(
+                            Tag::List(firstitemnum),
+                            if firstitemnum.is_some() {
+                                *OL_META
+                            } else {
+                                *UL_META
+                            })?,
+                    Tag::Item =>
+                        mdclose!(Tag::Item, *LI_META)?,
+                    Tag::FootnoteDefinition(label) => {
+                        // A footnote definition. The value contained is the footnote's
+                        // label by which it can be referred to.
+                        let frame = context.pop().expect("start before end");
+                        if let Some(FootnoteDefinition { text: footnote_text, .. })
+                            = markdownmeta.footnotes.get_mut(&*label)
+                        {
+                            if let Some(_) = footnote_text {
+                                return Err(MarkdownFileError::MultipleFootnoteWithLabel {
+                                    label: KString::from_ref(&*label)
+                                })
+                            } else {
+                                *footnote_text = Some(frame.body.as_slice());
+                                // XX what about atts?
+                            }
+                        } else {
+                            // Definition before first use
+                            markdownmeta.footnotes.insert(
+                                KString::from_ref(&*label),
+                                FootnoteDefinition {
+                                    reference: None,
+                                    text: Some(frame.body.as_slice()),
+                                    backreferences: Vec::new(),
+                                });
+                        }
+                    }
+                    Tag::Table(alignments) =>
+                        mdclose!(Tag::Table(alignments),
+                                 // XX todo: handle alignments
+                                 *TABLE_META)?,
+                    Tag::TableHead => 
+                        mdclose!(Tag::TableHead, *TH_META)?,
+                    Tag::TableRow => 
+                        mdclose!(Tag::TableRow, *TR_META)?,
+                    Tag::TableCell => 
+                        mdclose!(Tag::TableCell, *TD_META)?,
+                    Tag::Emphasis => 
+                        mdclose!(Tag::Emphasis, *EM_META)?,
+                    Tag::Strong => 
+                        mdclose!(Tag::Strong, *STRONG_META)?,
+                    Tag::Strikethrough => 
+                        mdclose!(Tag::Strikethrough, *S_META)?,
+                    Tag::Link(linktype, url, title) => {
+                        let (mut atts, body, outerframe) =
+                            mdpop!(
+                                // XX uh, need to clone just to verify. better?
+                                Tag::Link(linktype, url.clone(), title));
+
+                        let elt = match linktype {
+                            // Inline link like `[foo](bar)`
+                            LinkType::Inline => {
+                                atts.push(
+                                    html.attribute("href", kstring_myfrom2(url))?)?;
+                                html.a(atts, body)
+                            }
+                            // Reference link like `[foo][bar]`
+                            LinkType::Reference => {
+                                warn_todo!("LinkType::Reference: \
+                                            url, presumably?");
+                                atts.push(
+                                    html.attribute("href", kstring_myfrom2(url))?)?;
+                                html.a(atts, body)
+                            },
+                            // Reference without destination in
+                            // the document, but resolved by the
+                            // broken_link_callback
+                            LinkType::ReferenceUnknown => todo!(),
+                            // Collapsed link like `[foo][]`
+                            LinkType::Collapsed => todo!(),
+                            // Collapsed link without destination
+                            // in the document, but resolved by
+                            // the broken_link_callback
+                            LinkType::CollapsedUnknown => todo!(),
+                            // Shortcut link like `[foo]`
+                            LinkType::Shortcut => {
+                                warn_todo!("LinkType::Shortcut: need to build \
+                                            index and look up");
+                                atts.push(
+                                    html.attribute("href", kstring_myfrom2(url))?)?;
+                                html.a(atts, body)
+                            },
+                            // Shortcut without destination in the
+                            // document, but resolved by the
+                            // broken_link_callback
+                            LinkType::ShortcutUnknown => todo!(),
+                            // Autolink like `<http://foo.bar/baz>`
+                            LinkType::Autolink =>
+                                html.a([att("href", kstring_myfrom2(url))],
+                                       body),
+                            // Email address in autolink like `<john@example.org>`
+                            LinkType::Email =>
+                                html.a([att("href", email_url(&url))],
+                                       body),
+                        };
+                        outerframe.body.push(elt?)?;
+                    }
+                    Tag::Image(linktype, url, title) =>
+                    // Oh, almost COPYPASTE of Tag::Link
+                    {
+                        let (mut atts, body, outerframe) =
+                            mdpop!(
+                                // XX uh, need to clone just to verify. better?
+                                Tag::Link(linktype, url.clone(), title));
+                        let elt = match linktype {
+                            LinkType::Inline => {
+                                atts.push(
+                                    html.attribute("src", kstring_myfrom2(url))?)?;
+                                html.img(atts, body)
+                            }
+                            LinkType::Reference => todo!(),
+                            LinkType::ReferenceUnknown => todo!(),
+                            LinkType::Collapsed => todo!(),
+                            LinkType::CollapsedUnknown => todo!(),
+                            LinkType::Shortcut => todo!(),
+                            LinkType::ShortcutUnknown => todo!(),
+                            LinkType::Autolink => todo!(),
+                            LinkType::Email => todo!(),
+                        };
+                        outerframe.body.push(elt?)?;
+                    }
+                },
+            Event::Text(s) => {
+                let frame = current_frame!();
+                frame.body.push(html.str(&s)?)?;
+            }
+            Event::Code(s) => {
+                warn!("Event::Code({:?})", &*s);
+                let frame = current_frame!();
+                let elt = html.code(
+                    [],
+                    [
+                        html.str(&s)?
+                    ])?;
+                frame.body.push(elt)?;
+            }
+            Event::Html(s) => {
+                // I don't really want to put it all in here. This
+                // function is horribly long. But working with
+                // closures and hygienic macros in a way to re-use
+                // them, move them outside, is too painful for me
+                // right now, so I go.
+                dt!(&format!("Event::Html({s:?})"));
+                for token in html5gum::Tokenizer::new(&*s).infallible() {
+                    match token {
+                        Token::StartTag(starttag) => {
+                            let name: &str = std::str::from_utf8(
+                                &**starttag.name)?;
+                            let meta = METADB.elementmeta.get(name).ok_or_else(
+                                || MarkdownFileError::NotAnHTML5TagName {
+                                    name: KString::from_ref(name),
+                                    is_opening: true
+                                })?;
+                            let mut newframe = new_contextframe!(
+                                ContextTag::Html(meta));
+                            for (k, v) in starttag.attributes {
+                                newframe.atts.push(
+                                    html.attribute(
+                                        kstring(k)?, kstring(v)?)?)?;
+                            }
+                            if starttag.self_closing || ! meta.has_closing_tag {
+                                let cf = current_frame!();
+                                // XX give context to errors,
+                                // e.g. invalid attribute because,
+                                // where was the element coming
+                                // from? Or utf-8 conversion errors above, too.
+                                cf.body.push(frame_to_element(newframe, meta)?)?;
+                            } else {
+                                context.push(newframe);
+                            }
+                        }
+                        Token::EndTag(endtag) => {
+                            let name: &str = std::str::from_utf8(
+                                &**endtag.name)?;
+                            let meta = METADB.elementmeta.get(name).ok_or_else(
+                                || MarkdownFileError::NotAnHTML5TagName {
+                                    name: KString::from_ref(name),
+                                    is_opening: false
+                                })?;
+                            if meta.has_closing_tag {
+                                let (atts, body, outerframe) =
+                                    // XX error context. if only I had
+                                    // location info? sigh?
+                                    pop!(ContextTag::Html(meta));
+                                // Special HTML tag treatments
+                                if meta == *TITLE_META {
+                                    if markdownmeta.title.is_some() {
+                                        return Err(MarkdownFileError::MultipleTitleElements)
+                                    }
+                                    markdownmeta.title = Some(body.as_slice());
+                                    // XX dropping atts OK?
+                                } else {
+                                    outerframe.body.push(
+                                        html.new_element(meta,
+                                                         atts.as_slice(),
+                                                         body.as_slice())?)?;
+                                }
+                            } else {
+                                // NOOP, we haven't made a frame for it.
+                            }
+                        }
+                        Token::String(s) => {
+                            let frame = current_frame!();
+                            frame.body.push(html.kstring(kstring(s)?)?)?;
+                        }
+                        Token::Comment(_s) => {
+                            // This happens only when <!-- and -->
+                            // appear in the same markdown event,
+                            // i.e. in the same paragraph.  todo:
+                            // do something with _s?
+                        },
+                        Token::Doctype(_) => todo!(),
+                        Token::Error(e) =>
+                            if s.starts_with("<!--") {
+                                // XX how to check `e` ? Should verify it's "eof-in-comment"
+                                // let newframe = new_contextframe!(
+                                //     ContextTag::HtmlComment);
+                                // context.push(newframe);
+
+                                // No, slurp up markdown
+                                // events right here until -->
+                                // appears.
+                                while let Some(item) = parser.next() {
+                                    match item {
+                                        Event::Html(s) =>
+                                            if s.starts_with("-->") {
+                                                break
+                                            },
+                                        _ => ()
+                                    }
+                                }
+                            } else {
+                                return Err(MarkdownFileError::HTML5ParsingError {
+                                    error: e,
+                                    input: s.as_ref().into()
+                                })
+                            }
+                    }
+                }
+            }
+            Event::FootnoteReference(label) => {
+                // "A reference to a footnote with given label, which may or may
+                // not be defined by an event with a `Tag::FootnoteDefinition`
+                // tag. Definitions and references to them may occur in any
+                // order."
+                let backref = Backref(next_footnote_backreference());
+                let reference =
+                    if let Some(fnd) = markdownmeta.footnotes.get_mut(
+                        &*label) {
+                        let reference =
+                            if let Some(reference) = fnd.reference {
+                                reference
+                            } else {
+                                let reference = Footnoteref(next_footnote_number());
+                                fnd.reference = Some(reference);
+                                reference
+                            };
+                        fnd.backreferences.push(backref.clone());
+                        reference
+                    } else {
+                        let reference = Footnoteref(next_footnote_number());
+                        markdownmeta.footnotes.insert(
+                            KString::from_ref(&*label),
+                            FootnoteDefinition {
+                                reference: Some(reference),
+                                text: None,
+                                backreferences: vec![backref.clone()],
+                            });
+                        reference
+                    };
+
+                let frame = current_frame!();
+                if let Some(i) = frame.last_footnote_reference {
+                    if i == frame.body.len() {
+                        // Separate the new reference from the
+                        // last reference; todo?: ideally the 3
+                        // `sup` would be merged.
+                        frame.body.push(
+                            html.sup(
+                                [],
+                                [html.str(",")?])?)?;
+                    }
+                }
+                frame.body.push(
+                    html.sup(
+                        [att("id", backref.to_kstring(false)),],
+                        [html.a(
+                            [att("href", reference.to_kstring(true))],
+                            [html.string(reference.0.to_string())?])?])?)?;
+                frame.last_footnote_reference = Some(frame.body.len());
+            }
+            Event::SoftBreak => {
+                // a single \n in the input
+                let frame = current_frame!();
+                frame.body.push(html.str("\n")?)?;
+            }
+            Event::HardBreak => {
+                // "  \n" in the input
+                let frame = current_frame!();
+                frame.body.push(html.br([], [])?)?;
+            }
+            Event::Rule => {
+                let frame = current_frame!();
+                frame.body.push(html.hr(
+                    [],
+                    [])?)?;
+            }
+            Event::TaskListMarker(checked) => {
+                let frame = current_frame!();
+                let mut atts = html.new_vec();
+                atts.push(html.attribute("type", "checkbox")?)?;
+                atts.push(html.attribute("disabled", "")?)?;
+                if checked {
+                    atts.push(html.attribute("checked", "")?)?;
+                }
+                frame.body.push(
+                    html.input(
+                        atts,
+                        [])?)?;
+            }
+        }
+    }
+
+    match context.len() {
+        0 => panic!("top-level context was dropped -- should be impossible?"),
+        1 => (),
+        n => return Err(MarkdownFileError::NonClosedContexts {
+            n: n - 1,
+            msg: context[1..].iter().map(
+                       |c| c.tag.to_string())
+                   .collect::<Vec<String>>()
+                   .join(", ")
+        }),
+    }
+    let baseframe = context.pop().unwrap();
+    Ok(ProcessedMarkdown {
+        html: frame_to_element(baseframe, *DIV_META)?,
+        meta: markdownmeta
+    })
+}
+
+// (No point for this type, really, only holds the path for one method
+// call.)
 impl MarkdownFile {
     pub fn new(path: PathBuf) -> MarkdownFile {
         MarkdownFile { path } 
     }
+
     pub fn path(&self) -> &PathBuf {
         &self.path
     }
-    
-    /// Convert to HTML, and capture metainformation to allow for
-    /// creation of TOC and footnotes section.
+
     pub fn process_to_html(
         &self, html: &HtmlAllocator
-    ) -> Result<ProcessedMarkdown, MarkdownFileError>
-    {
-        let mut options = Options::empty();
-        options.insert(Options::ENABLE_TABLES);
-        options.insert(Options::ENABLE_FOOTNOTES);
-        options.insert(Options::ENABLE_STRIKETHROUGH);
-        options.insert(Options::ENABLE_TASKLISTS);
-        options.insert(Options::ENABLE_SMART_PUNCTUATION);// XX config
-        options.insert(Options::ENABLE_HEADING_ATTRIBUTES);
-
+    ) -> Result<ProcessedMarkdown, MarkdownFileError> {
+    
         // `Parser` is NOT supporting streaming. For reasons of
         // shining in (superficial) performance bencharks?
         // XX impose a size limit on the markdown file here?
         let s = read_to_string(&self.path)
             .with_context(|| anyhow::anyhow!("can't read file {:?}", self.path))?;
-        let mut parser = Parser::new_ext(&s, options);
 
-        // Context
-        let mut _context: Vec<ContextFrame> = Vec::new();
-        let mut context = &mut _context;
-        // Push a base frame (wrapper around everything):
-        context.push(ContextFrame {
-            tag: ContextTag::Markdown(Tag::Paragraph), // fake
-            atts: AVec::new(html),
-            body: AVec::new(html),
-            last_footnote_reference: None,
-        });
-        macro_rules! new_contextframe {
-            ($tag:expr) => {
-                ContextFrame {
-                    tag: $tag,
-                    atts: AVec::new(html),
-                    body: AVec::new(html),
-                    last_footnote_reference: None,
-                }
-            }
-        }
-
-        // Opening a context
-        macro_rules! mdopen {
-            ($tag:expr) => {
-                context.push(new_contextframe!(ContextTag::Markdown($tag)))
-            }
-        }
-
-        // Closing a context
-        let frame_to_element =
-            |frame: ContextFrame, meta: &'static ElementMeta|
-            -> Result<AId<Node>, MarkdownFileError> {
-                Ok(html.new_element(
-                    meta,
-                    frame.atts.as_slice(),
-                    frame.body.as_slice())?)
-            };
-        let close =
-            |
-        context: &mut Vec<ContextFrame>,
-        tag: ContextTag,
-        meta: &'static ElementMeta
-            | -> Result<(), MarkdownFileError>
-        {
-            let frame = context.pop().expect("start before end");
-            frame.tag.assert_eq(&tag)?;
-            let outerframe = context.last_mut()
-                .expect("at least base frame");
-            outerframe.body.push(frame_to_element(frame, meta)?)?;
-            Ok(())
-        };
-        macro_rules! mdclose {
-            ($tag:expr, $meta:expr) => {
-                close(&mut context, ContextTag::Markdown($tag), $meta)
-            }
-        }
-        // Alternative approach:
-        macro_rules! pop {
-            ($tag:expr) => {{
-                // XX minimize code via local function
-                let frame = context.pop().expect("start before end");
-                frame.tag.assert_eq(&$tag)?;
-                let outerframe = context.last_mut()
-                    .expect("at least base frame");
-                (frame.atts, frame.body, outerframe)
-            }}
-        }
-        macro_rules! mdpop {
-            ($tag:expr) => {
-                pop!(ContextTag::Markdown($tag))
-            }
-        }
-
-        macro_rules! current_frame {
-            () => {
-                context.last_mut().expect(
-                    "At least base frame; at least bug in markdown lib?")
-            }
-        }
-
-        let mut markdownmeta =  MarkdownMeta::new();
-        // let mut current_heading = None;
-        let mut anchor_name = String::new();
-        let mut tmp = String::new();
-        // Anchor names to number of uses, acting as id
-        let mut anchor_names: HashMap<KString, u32> = HashMap::new();
-        
-        let mut next_footnote_number = infinite_sequence(1, 1);
-        let mut next_footnote_backreference = infinite_sequence(1, 1);
-
-        while let Some(item) = parser.next() {
-            match item {
-                Event::Start(x) =>
-                    match x {
-                        Tag::Paragraph =>
-                            mdopen!(Tag::Paragraph),
-                        Tag::Heading(level, fragmentid, classes) =>
-                            mdopen!(Tag::Heading(level, fragmentid, classes)),
-                        Tag::BlockQuote =>
-                            mdopen!(Tag::BlockQuote),
-                        Tag::CodeBlock(kind) =>
-                            mdopen!(Tag::CodeBlock(kind)),
-                        Tag::List(firstitemnum) =>
-                            mdopen!(Tag::List(firstitemnum)),
-                        Tag::Item =>
-                            mdopen!(Tag::Item),
-                        Tag::FootnoteDefinition(label) =>
-                            mdopen!(Tag::FootnoteDefinition(label)),
-                        Tag::Table(alignments) =>
-                            mdopen!(Tag::Table(alignments)),
-                        Tag::TableHead =>
-                            mdopen!(Tag::TableHead),
-                        Tag::TableRow => 
-                            mdopen!(Tag::TableRow),
-                        Tag::TableCell =>
-                            mdopen!(Tag::TableCell),
-                        Tag::Emphasis => 
-                            mdopen!(Tag::Emphasis),
-                        Tag::Strong => 
-                            mdopen!(Tag::Strong),
-                        Tag::Strikethrough => 
-                            mdopen!(Tag::Strikethrough),
-                        Tag::Link(linktype, url, title) =>
-                            mdopen!(Tag::Link(linktype, url, title)),
-                        Tag::Image(linktype, url, title) =>
-                            mdopen!(Tag::Image(linktype, url, title)),
-                    },
-                Event::End(x) =>
-                    match x {
-                        Tag::Paragraph =>
-                            mdclose!(Tag::Paragraph, *P_META)?,
-                        Tag::Heading(level, fragmentid, classes) => {
-                            {
-                                // Store generated HTML for this
-                                // heading in markdownmeta, too,
-                                // and add a reference to the html
-                                // element in the body.
-                                let frame = current_frame!();
-                                let bodyslice = frame.body.as_slice();
-                                tmp.clear();
-                                for node in bodyslice.iter_node(html) {
-                                    node.print_plain(&mut tmp, html)?;
-                                }
-                                anchor_name.clear();
-                                text_to_anchor(&tmp, &mut anchor_name);
-
-                                // Append number if necessary to avoid conflicts
-                                // (XX should actually do a check like this on the whole
-                                // generated page (uh, preserialized parts!))
-                                let anchor_name_kstr;
-                                'search: loop { // loop bc labels on blocks are unstable
-                                    for _ in 0..10 {
-                                        if let Some(counter) = anchor_names.get_mut(&*anchor_name) {
-                                            *counter += 1;
-                                            anchor_name.push_str(&format!("-{}", *counter));
-                                        } else {
-                                            anchor_name_kstr = KString::from(&anchor_name); 
-                                            anchor_names.insert(anchor_name_kstr.clone(), 1);
-                                            break 'search;
-                                        }
-                                    }
-                                    warn!("more than 10 *levels* of conflicts trying to find \
-                                           unallocated name; leaving it conflicting");
-                                    anchor_name_kstr = KString::from(&anchor_name);
-                                    break;
-                                }
-
-                                frame.atts.push(
-                                    // XX Should offer an `attribute`
-                                    // method that accepts 2 arguments
-                                    // which are ToKString. clone should
-                                    // be faster than from_str.
-                                    html.attribute(
-                                        "id", anchor_name_kstr.as_str())?)?;
-
-                                markdownmeta.push_heading(MarkdownHeading {
-                                    level,
-                                    header: Some(MarkdownHeader{
-                                        html: bodyslice,
-                                        anchor_name: anchor_name_kstr
-                                    }),
-                                    subheadings: Vec::new()
-                                });
-                            }
-
-                            let meta = elementmeta_from_headinglevel(level);
-                            // XX todo: handle fragmentid, classes
-                            mdclose!(Tag::Heading(level, fragmentid, classes),
-                                     meta)?
-                        }
-                        Tag::BlockQuote =>
-                            mdclose!(Tag::BlockQuote, *BLOCKQUOTE_META)?,
-                        Tag::CodeBlock(kind) => 
-                        // XX kind -> class="language-xxx", and do highlighting
-                            mdclose!(Tag::CodeBlock(kind), *PRE_META)?,
-                            
-                        Tag::List(firstitemnum) =>
-                            mdclose!(
-                                Tag::List(firstitemnum),
-                                if firstitemnum.is_some() {
-                                    *OL_META
-                                } else {
-                                    *UL_META
-                                })?,
-                        Tag::Item =>
-                            mdclose!(Tag::Item, *LI_META)?,
-                        Tag::FootnoteDefinition(label) => {
-                            // A footnote definition. The value contained is the footnote's
-                            // label by which it can be referred to.
-                            let frame = context.pop().expect("start before end");
-                            if let Some(FootnoteDefinition { text: footnote_text, .. })
-                                = markdownmeta.footnotes.get_mut(&*label)
-                            {
-                                if let Some(_) = footnote_text {
-                                    return Err(MarkdownFileError::MultipleFootnoteWithLabel {
-                                        label: KString::from_ref(&*label)
-                                    })
-                                } else {
-                                    *footnote_text = Some(frame.body.as_slice());
-                                    // XX what about atts?
-                                }
-                            } else {
-                                // Definition before first use
-                                markdownmeta.footnotes.insert(
-                                    KString::from_ref(&*label),
-                                    FootnoteDefinition {
-                                        reference: None,
-                                        text: Some(frame.body.as_slice()),
-                                        backreferences: Vec::new(),
-                                    });
-                            }
-                        }
-                        Tag::Table(alignments) =>
-                            mdclose!(Tag::Table(alignments),
-                                     // XX todo: handle alignments
-                                     *TABLE_META)?,
-                        Tag::TableHead => 
-                            mdclose!(Tag::TableHead, *TH_META)?,
-                        Tag::TableRow => 
-                            mdclose!(Tag::TableRow, *TR_META)?,
-                        Tag::TableCell => 
-                            mdclose!(Tag::TableCell, *TD_META)?,
-                        Tag::Emphasis => 
-                            mdclose!(Tag::Emphasis, *EM_META)?,
-                        Tag::Strong => 
-                            mdclose!(Tag::Strong, *STRONG_META)?,
-                        Tag::Strikethrough => 
-                            mdclose!(Tag::Strikethrough, *S_META)?,
-                        Tag::Link(linktype, url, title) => {
-                            let (mut atts, body, outerframe) =
-                                mdpop!(
-                                    // XX uh, need to clone just to verify. better?
-                                    Tag::Link(linktype, url.clone(), title));
-
-                            let elt = match linktype {
-                                // Inline link like `[foo](bar)`
-                                LinkType::Inline => {
-                                    atts.push(
-                                        html.attribute("href", kstring_myfrom2(url))?)?;
-                                    html.a(atts, body)
-                                }
-                                // Reference link like `[foo][bar]`
-                                LinkType::Reference => {
-                                    warn_todo!("LinkType::Reference: \
-                                                url, presumably?");
-                                    atts.push(
-                                        html.attribute("href", kstring_myfrom2(url))?)?;
-                                    html.a(atts, body)
-                                },
-                                // Reference without destination in
-                                // the document, but resolved by the
-                                // broken_link_callback
-                                LinkType::ReferenceUnknown => todo!(),
-                                // Collapsed link like `[foo][]`
-                                LinkType::Collapsed => todo!(),
-                                // Collapsed link without destination
-                                // in the document, but resolved by
-                                // the broken_link_callback
-                                LinkType::CollapsedUnknown => todo!(),
-                                // Shortcut link like `[foo]`
-                                LinkType::Shortcut => {
-                                    warn_todo!("LinkType::Shortcut: need to build \
-                                                index and look up");
-                                    atts.push(
-                                        html.attribute("href", kstring_myfrom2(url))?)?;
-                                    html.a(atts, body)
-                                },
-                                // Shortcut without destination in the
-                                // document, but resolved by the
-                                // broken_link_callback
-                                LinkType::ShortcutUnknown => todo!(),
-                                // Autolink like `<http://foo.bar/baz>`
-                                LinkType::Autolink =>
-                                    html.a([att("href", kstring_myfrom2(url))],
-                                           body),
-                                // Email address in autolink like `<john@example.org>`
-                                LinkType::Email =>
-                                    html.a([att("href", email_url(&url))],
-                                           body),
-                            };
-                            outerframe.body.push(elt?)?;
-                        }
-                        Tag::Image(linktype, url, title) =>
-                        // Oh, almost COPYPASTE of Tag::Link
-                        {
-                            let (mut atts, body, outerframe) =
-                                mdpop!(
-                                    // XX uh, need to clone just to verify. better?
-                                    Tag::Link(linktype, url.clone(), title));
-                            let elt = match linktype {
-                                LinkType::Inline => {
-                                    atts.push(
-                                        html.attribute("src", kstring_myfrom2(url))?)?;
-                                    html.img(atts, body)
-                                }
-                                LinkType::Reference => todo!(),
-                                LinkType::ReferenceUnknown => todo!(),
-                                LinkType::Collapsed => todo!(),
-                                LinkType::CollapsedUnknown => todo!(),
-                                LinkType::Shortcut => todo!(),
-                                LinkType::ShortcutUnknown => todo!(),
-                                LinkType::Autolink => todo!(),
-                                LinkType::Email => todo!(),
-                            };
-                            outerframe.body.push(elt?)?;
-                        }
-                    },
-                Event::Text(s) => {
-                    let frame = current_frame!();
-                    frame.body.push(html.str(&s)?)?;
-                }
-                Event::Code(s) => {
-                    warn!("Event::Code({:?})", &*s);
-                    let frame = current_frame!();
-                    let elt = html.code(
-                        [],
-                        [
-                            html.str(&s)?
-                        ])?;
-                    frame.body.push(elt)?;
-                }
-                Event::Html(s) => {
-                    // I don't really want to put it all in here. This
-                    // function is horribly long. But working with
-                    // closures and hygienic macros in a way to re-use
-                    // them, move them outside, is too painful for me
-                    // right now, so I go.
-                    dt!(&format!("Event::Html({s:?})"));
-                    for token in html5gum::Tokenizer::new(&*s).infallible() {
-                        match token {
-                            Token::StartTag(starttag) => {
-                                let name: &str = std::str::from_utf8(
-                                    &**starttag.name)?;
-                                let meta = METADB.elementmeta.get(name).ok_or_else(
-                                    || MarkdownFileError::NotAnHTML5TagName {
-                                        name: KString::from_ref(name),
-                                        is_opening: true
-                                    })?;
-                                let mut newframe = new_contextframe!(
-                                    ContextTag::Html(meta));
-                                for (k, v) in starttag.attributes {
-                                    newframe.atts.push(
-                                        html.attribute(
-                                            kstring(k)?, kstring(v)?)?)?;
-                                }
-                                if starttag.self_closing || ! meta.has_closing_tag {
-                                    let cf = current_frame!();
-                                    // XX give context to errors,
-                                    // e.g. invalid attribute because,
-                                    // where was the element coming
-                                    // from? Or utf-8 conversion errors above, too.
-                                    cf.body.push(frame_to_element(newframe, meta)?)?;
-                                } else {
-                                    context.push(newframe);
-                                }
-                            }
-                            Token::EndTag(endtag) => {
-                                let name: &str = std::str::from_utf8(
-                                    &**endtag.name)?;
-                                let meta = METADB.elementmeta.get(name).ok_or_else(
-                                    || MarkdownFileError::NotAnHTML5TagName {
-                                        name: KString::from_ref(name),
-                                        is_opening: false
-                                    })?;
-                                if meta.has_closing_tag {
-                                    let (atts, body, outerframe) =
-                                        // XX error context. if only I had
-                                        // location info? sigh?
-                                        pop!(ContextTag::Html(meta));
-                                    // Special HTML tag treatments
-                                    if meta == *TITLE_META {
-                                        if markdownmeta.title.is_some() {
-                                            return Err(MarkdownFileError::MultipleTitleElements)
-                                        }
-                                        markdownmeta.title = Some(body.as_slice());
-                                        // XX dropping atts OK?
-                                    } else {
-                                        outerframe.body.push(
-                                            html.new_element(meta,
-                                                             atts.as_slice(),
-                                                             body.as_slice())?)?;
-                                    }
-                                } else {
-                                    // NOOP, we haven't made a frame for it.
-                                }
-                            }
-                            Token::String(s) => {
-                                let frame = current_frame!();
-                                frame.body.push(html.kstring(kstring(s)?)?)?;
-                            }
-                            Token::Comment(_s) => {
-                                // This happens only when <!-- and -->
-                                // appear in the same markdown event,
-                                // i.e. in the same paragraph.  todo:
-                                // do something with _s?
-                            },
-                            Token::Doctype(_) => todo!(),
-                            Token::Error(e) =>
-                                if s.starts_with("<!--") {
-                                    // XX how to check `e` ? Should verify it's "eof-in-comment"
-                                    // let newframe = new_contextframe!(
-                                    //     ContextTag::HtmlComment);
-                                    // context.push(newframe);
-
-                                    // No, slurp up markdown
-                                    // events right here until -->
-                                    // appears.
-                                    while let Some(item) = parser.next() {
-                                        match item {
-                                            Event::Html(s) =>
-                                                if s.starts_with("-->") {
-                                                    break
-                                                },
-                                            _ => ()
-                                        }
-                                    }
-                                } else {
-                                    return Err(MarkdownFileError::HTML5ParsingError {
-                                        error: e,
-                                        input: s.as_ref().into()
-                                    })
-                                }
-                        }
-                    }
-                }
-                Event::FootnoteReference(label) => {
-                    // "A reference to a footnote with given label, which may or may
-                    // not be defined by an event with a `Tag::FootnoteDefinition`
-                    // tag. Definitions and references to them may occur in any
-                    // order."
-                    let backref = Backref(next_footnote_backreference());
-                    let reference =
-                        if let Some(fnd) = markdownmeta.footnotes.get_mut(
-                            &*label) {
-                            let reference =
-                                if let Some(reference) = fnd.reference {
-                                    reference
-                                } else {
-                                    let reference = Footnoteref(next_footnote_number());
-                                    fnd.reference = Some(reference);
-                                    reference
-                                };
-                            fnd.backreferences.push(backref.clone());
-                            reference
-                        } else {
-                            let reference = Footnoteref(next_footnote_number());
-                            markdownmeta.footnotes.insert(
-                                KString::from_ref(&*label),
-                                FootnoteDefinition {
-                                    reference: Some(reference),
-                                    text: None,
-                                    backreferences: vec![backref.clone()],
-                                });
-                            reference
-                        };
-
-                    let frame = current_frame!();
-                    if let Some(i) = frame.last_footnote_reference {
-                        if i == frame.body.len() {
-                            // Separate the new reference from the
-                            // last reference; todo?: ideally the 3
-                            // `sup` would be merged.
-                            frame.body.push(
-                                html.sup(
-                                    [],
-                                    [html.str(",")?])?)?;
-                        }
-                    }
-                    frame.body.push(
-                        html.sup(
-                            [att("id", backref.to_kstring(false)),],
-                            [html.a(
-                                [att("href", reference.to_kstring(true))],
-                                [html.string(reference.0.to_string())?])?])?)?;
-                    frame.last_footnote_reference = Some(frame.body.len());
-                }
-                Event::SoftBreak => {
-                    // a single \n in the input
-                    let frame = current_frame!();
-                    frame.body.push(html.str("\n")?)?;
-                }
-                Event::HardBreak => {
-                    // "  \n" in the input
-                    let frame = current_frame!();
-                    frame.body.push(html.br([], [])?)?;
-                }
-                Event::Rule => {
-                    let frame = current_frame!();
-                    frame.body.push(html.hr(
-                        [],
-                        [])?)?;
-                }
-                Event::TaskListMarker(checked) => {
-                    let frame = current_frame!();
-                    let mut atts = html.new_vec();
-                    atts.push(html.attribute("type", "checkbox")?)?;
-                    atts.push(html.attribute("disabled", "")?)?;
-                    if checked {
-                        atts.push(html.attribute("checked", "")?)?;
-                    }
-                    frame.body.push(
-                        html.input(
-                            atts,
-                            [])?)?;
-                }
-            }
-        }
-        
-        match context.len() {
-            0 => panic!("top-level context was dropped -- should be impossible?"),
-            1 => (),
-            n => return Err(MarkdownFileError::NonClosedContexts {
-                n: n - 1,
-                msg: context[1..].iter().map(
-                           |c| c.tag.to_string())
-                       .collect::<Vec<String>>()
-                       .join(", ")
-            }),
-        }
-        let baseframe = context.pop().unwrap();
-        Ok(ProcessedMarkdown {
-            html: frame_to_element(baseframe, *DIV_META)?,
-            meta: markdownmeta
-        })
+        markdown_to_html(&s, html)
     }
 }
