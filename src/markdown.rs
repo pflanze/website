@@ -1,6 +1,6 @@
 //! Convert markdown to HTML.
 
-use std::{path::PathBuf, fmt::{Display, Debug}, collections::HashMap, panic::RefUnwindSafe};
+use std::{path::PathBuf, fmt::{Display, Debug}, collections::HashMap, panic::RefUnwindSafe, str::Utf8Error};
 use anyhow::{Result, anyhow, bail};
 use html5gum::{Token, HtmlString};
 use kstring::KString;
@@ -34,6 +34,33 @@ pub enum MarkdownFileError {
         name: KString,
         is_opening: bool,
     },
+    #[error("non-balanced tags: <{opening}> ending as </{closing}>")]
+    UnbalancedTags {
+        opening: String,
+        closing: String,
+    },
+    #[error("multiple definitions of a footnote with the label {label:?}")]
+    MultipleFootnoteWithLabel {
+        label: KString
+    },
+    #[error("multiple <title> elements")]
+    MultipleTitleElements,
+    // Really should record the location, not the input!
+    #[error("HTML5 parsing error: {error} for {input:?}")]
+    HTML5ParsingError {
+        error: html5gum::Error,
+        input: Box<str>,
+    },
+    #[error("{n} non-closed context(s) at end of markdown document: {msg}")]
+    NonClosedContexts {
+        n: usize,
+        msg: String
+    },
+
+    #[error("anyhow: {0}")]
+    Anyhow(#[from] anyhow::Error),
+    #[error("UTF-8 decoding error: {0}")]
+    Utf8Error(#[from] Utf8Error),
 }
 
 /// This can't be replaced with `att` or the MyFrom trait, because it
@@ -519,12 +546,14 @@ impl<'t> PartialEq for ContextTag<'t> {
 }
 
 impl<'t> ContextTag<'t> {
-    fn assert_eq(&self, other: &ContextTag) -> Result<()> {
-        if *self == *other {
+    fn assert_eq(&self, closing: &ContextTag) -> Result<(), MarkdownFileError> {
+        if *self == *closing {
             Ok(())
         } else {
-            Err(anyhow!("non-balanced tags/markup: {} ending as {}",
-                        self, other))
+            Err(MarkdownFileError::UnbalancedTags {
+                opening: self.to_string(),
+                closing: closing.to_string()
+            })
         }
     }
 }
@@ -551,7 +580,7 @@ impl MarkdownFile {
     /// creation of TOC and footnotes section.
     pub fn process_to_html(
         &self, html: &HtmlAllocator
-    ) -> Result<ProcessedMarkdown>
+    ) -> Result<ProcessedMarkdown, MarkdownFileError>
     {
         let mut options = Options::empty();
         options.insert(Options::ENABLE_TABLES);
@@ -597,18 +626,19 @@ impl MarkdownFile {
 
         // Closing a context
         let frame_to_element =
-            |frame: ContextFrame, meta: &'static ElementMeta| -> Result<AId<Node>> {
-                html.new_element(
+            |frame: ContextFrame, meta: &'static ElementMeta|
+            -> Result<AId<Node>, MarkdownFileError> {
+                Ok(html.new_element(
                     meta,
                     frame.atts.as_slice(),
-                    frame.body.as_slice())
+                    frame.body.as_slice())?)
             };
         let close =
             |
         context: &mut Vec<ContextFrame>,
         tag: ContextTag,
         meta: &'static ElementMeta
-            | -> Result<()>
+            | -> Result<(), MarkdownFileError>
         {
             let frame = context.pop().expect("start before end");
             frame.tag.assert_eq(&tag)?;
@@ -780,8 +810,9 @@ impl MarkdownFile {
                                 = markdownmeta.footnotes.get_mut(&*label)
                             {
                                 if let Some(_) = footnote_text {
-                                    bail!("multiple definitions of a footnote with the \
-                                           label {:?}", &*label)
+                                    return Err(MarkdownFileError::MultipleFootnoteWithLabel {
+                                        label: KString::from_ref(&*label)
+                                    })
                                 } else {
                                     *footnote_text = Some(frame.body.as_slice());
                                     // XX what about atts?
@@ -957,7 +988,7 @@ impl MarkdownFile {
                                     // Special HTML tag treatments
                                     if meta == *TITLE_META {
                                         if markdownmeta.title.is_some() {
-                                            bail!("multiple <title> elements")
+                                            return Err(MarkdownFileError::MultipleTitleElements)
                                         }
                                         markdownmeta.title = Some(body.as_slice());
                                         // XX dropping atts OK?
@@ -1002,7 +1033,10 @@ impl MarkdownFile {
                                         }
                                     }
                                 } else {
-                                    bail!("HTML5 parsing error: {e} for {s:?}")
+                                    return Err(MarkdownFileError::HTML5ParsingError {
+                                        error: e,
+                                        input: s.as_ref().into()
+                                    })
                                 }
                         }
                     }
@@ -1091,14 +1125,15 @@ impl MarkdownFile {
         }
         
         match context.len() {
-            0 => bail!("top-level context was dropped -- should be impossible?"),
+            0 => panic!("top-level context was dropped -- should be impossible?"),
             1 => (),
-            n => bail!("{} non-closed context(s) at end of markdown document: {}",
-                       n - 1,
-                       context[1..].iter().map(
+            n => return Err(MarkdownFileError::NonClosedContexts {
+                n: n - 1,
+                msg: context[1..].iter().map(
                            |c| c.tag.to_string())
                        .collect::<Vec<String>>()
-                       .join(", "))
+                       .join(", ")
+            }),
         }
         let baseframe = context.pop().unwrap();
         Ok(ProcessedMarkdown {
