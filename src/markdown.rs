@@ -1,7 +1,7 @@
 //! Convert markdown to HTML.
 
-use std::{path::PathBuf, fmt::{Display, Debug}, collections::HashMap, panic::RefUnwindSafe, str::Utf8Error};
-use anyhow::{Result, anyhow, bail};
+use std::{path::PathBuf, fmt::{Display, Debug}, collections::HashMap,
+          panic::RefUnwindSafe, str::Utf8Error, string::FromUtf8Error};
 use html5gum::{Token, HtmlString};
 use kstring::KString;
 use pulldown_cmark::{Parser, Options, Event, Tag, HeadingLevel, LinkType};
@@ -39,10 +39,20 @@ pub enum MarkdownFileError {
         opening: String,
         closing: String,
     },
+
     #[error("multiple definitions of a footnote with the label {label:?}")]
     MultipleFootnoteWithLabel {
         label: KString
     },
+    #[error("unused footnote {:?}", label.as_str())]
+    UnusedFootnote {
+        label: KString
+    },
+    #[error("missing definition for footnote {:?}", label.as_str())]
+    MissingFootnoteDefinition {
+        label: KString
+    },
+
     #[error("multiple <title> elements")]
     MultipleTitleElements,
     // Really should record the location, not the input!
@@ -56,16 +66,22 @@ pub enum MarkdownFileError {
         n: usize,
         msg: String
     },
+    #[error("can't shift header levels by {diff} because getting out of range")]
+    HeaderLevelShiftOutOfRange {
+        diff: i32
+    },
 
     #[error("anyhow: {0}")]
     Anyhow(#[from] anyhow::Error),
     #[error("UTF-8 decoding error: {0}")]
     Utf8Error(#[from] Utf8Error),
+    #[error("UTF-8 decoding error: {0}")]
+    FromUtf8Error(#[from] FromUtf8Error),
 }
 
 /// This can't be replaced with `att` or the MyFrom trait, because it
 /// can fail.
-fn kstring(s: HtmlString) -> Result<KString> {
+fn kstring(s: HtmlString) -> Result<KString, FromUtf8Error> {
     Ok(KString::from_string(String::from_utf8(s.0)?))
 }
 
@@ -77,7 +93,7 @@ pub trait StylingInterface: Send + Sync + RefUnwindSafe {
     fn new_context<'c>(
         &'c self,
         html: &HtmlAllocator,
-    ) -> Result<Box<dyn StylingContextInterface<'c> + 'c>>;
+    ) -> anyhow::Result<Box<dyn StylingContextInterface<'c> + 'c>>;
 }
 
 pub trait StylingContextInterface<'c> {
@@ -87,13 +103,13 @@ pub trait StylingContextInterface<'c> {
         reference: &Footnoteref,
         backreferences: &[Backref],
         clean_slice: &ASlice<Node>,
-    ) -> Result<Flat<Node>>;
+    ) -> anyhow::Result<Flat<Node>>;
 
     fn format_footnotes(
         &self,
         body: ASlice<Node>,
         html: &HtmlAllocator,
-    ) -> Result<AId<Node>>;
+    ) -> anyhow::Result<AId<Node>>;
 }
 
 // ------------------------------------------------------------------
@@ -198,7 +214,7 @@ impl MarkdownHeading {
 
     fn to_toc_html_fragment(
         &self, html: &HtmlAllocator
-    ) -> Result<AId<Node>> {
+    ) -> anyhow::Result<AId<Node>> {
         let mut body = html.new_vec();
         for subheading in &self.subheadings {
             body.push(subheading.to_toc_html_fragment(html)?)?;
@@ -308,7 +324,7 @@ impl MarkdownMeta {
     // Alright, should then do function on *that* ^, todo?
     pub fn toc_html_fragment(
         &self, html: &HtmlAllocator
-    ) -> Result<AId<Node>> {
+    ) -> anyhow::Result<AId<Node>> {
         let headings = self.title_and_remaining_headings().1;
         let mut body = html.new_vec();
         for subheading in headings {
@@ -339,7 +355,7 @@ impl MarkdownMeta {
         &self,
         html: &HtmlAllocator,
         style: &dyn StylingInterface,
-    ) -> Result<(usize, AId<Node>)> {
+    ) -> Result<(usize, AId<Node>), MarkdownFileError> {
         let mut footnotes: Vec<_> = self.footnotes.iter().collect();
         footnotes.sort_by_key(|f| f.1.reference);
         // dbg!(&footnotes);
@@ -348,9 +364,9 @@ impl MarkdownMeta {
         let mut body = html.new_vec();
         for (label, fnd) in &footnotes {
             let reference = fnd.reference.ok_or_else(
-                || anyhow!("unused footnote {:?}", label.as_str()))?;
+                || MarkdownFileError::UnusedFootnote { label: (*label).clone() })?;
             let slice = fnd.text.ok_or_else(
-                || anyhow!("missing definition for footnote {:?}", label.as_str()))?;
+                || MarkdownFileError::MissingFootnoteDefinition { label: (*label).clone() })?;
             let clean_slice = slice.unwrap_element(*P_META, true, html);
             body.push_flat(
                 context.format_footnote_definition(
@@ -397,7 +413,7 @@ impl MarkdownMeta {
     /// Like `title` but as a string with markup stripped, and falling
     /// back to `alternative` if not present.
     pub fn title_string(&self, html: &HtmlAllocator, alternative: &str)
-                        -> Result<KString>
+                        -> anyhow::Result<KString>
     {
         if let Some(sl) = self.title() {
             let mut v = String::new();
@@ -428,7 +444,7 @@ impl ProcessedMarkdown {
     pub fn html(&self) -> AId<Node> { self.html }
     pub fn meta(&self) -> &MarkdownMeta { &self.meta }
 
-    pub fn fixed_html(&self, html: &HtmlAllocator) -> Result<AId<Node>> {
+    pub fn fixed_html(&self, html: &HtmlAllocator) -> anyhow::Result<AId<Node>> {
         // Which is the top level we *want*?
         let (opt_title, _heading, do_drop_h1) =
             self.meta.title_and_remaining_headings();
@@ -450,7 +466,7 @@ impl ProcessedMarkdown {
         let fixup: Box<dyn Fn(_) -> _> =
             if do_drop_h1 {
                 warn!("do_drop_h1");
-                Box::new(|id: AId<Node>| -> Result<Option<AId<Node>>> {
+                Box::new(|id: AId<Node>| -> anyhow::Result<Option<AId<Node>>> {
                     let node = html.get_node(id).expect("correct HtmlAllocator");
                     if let Some(elt) = node.as_element() {
                         if elt.meta() == *H1_META {
@@ -470,14 +486,15 @@ impl ProcessedMarkdown {
                     if diff == 0 {
                         return Ok(self.html)
                     }
-                    Box::new(move |id: AId<Node>| -> Result<Option<AId<Node>>> {
+                    Box::new(move |id: AId<Node>| -> anyhow::Result<Option<AId<Node>>> {
                         let node = html.get_node(id).expect("correct HtmlAllocator");
                         if let Some(elt) = node.as_element() {
                             if let Some(lvl) = level_from_elementmeta(elt.meta()) {
                                 let lvl2 = lvl + diff;
                                 let meta2 = elementmeta_from_num(lvl2).ok_or_else(
-                                    || anyhow!("can't shift header levels by {diff} \
-                                                because getting out of range"))?;
+                                    || MarkdownFileError::HeaderLevelShiftOutOfRange {
+                                        diff
+                                    })?;
                                 let elt2 = Element {
                                     meta: meta2,
                                     attr: elt.attr().clone(),
